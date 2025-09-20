@@ -14,7 +14,179 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      categories: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          icon: string | null
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      credit_cards: {
+        Row: {
+          created_at: string | null
+          credit_limit: number
+          current_balance: number | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          credit_limit: number
+          current_balance?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          credit_limit?: number
+          current_balance?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      savings_accounts: {
+        Row: {
+          created_at: string | null
+          current_balance: number | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          opening_balance: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_balance?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          opening_balance?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          current_balance?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          opening_balance?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          account_id: string
+          account_type: string | null
+          amount: number
+          category_id: string | null
+          created_at: string | null
+          description: string
+          id: string
+          notes: string | null
+          transaction_date: string
+          transaction_type: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          account_type?: string | null
+          amount: number
+          category_id?: string | null
+          created_at?: string | null
+          description: string
+          id?: string
+          notes?: string | null
+          transaction_date: string
+          transaction_type?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          account_type?: string | null
+          amount?: number
+          category_id?: string | null
+          created_at?: string | null
+          description?: string
+          id?: string
+          notes?: string | null
+          transaction_date?: string
+          transaction_type?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_profiles: {
+        Row: {
+          created_at: string | null
+          currency_symbol: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency_symbol?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency_symbol?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
