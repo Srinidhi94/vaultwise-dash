@@ -7,6 +7,9 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useEffect } from "react";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
+import Accounts from "./pages/Accounts";
+import Transactions from "./pages/Transactions";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -61,6 +64,21 @@ const App = () => {
             <Route path="/" element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/accounts" element={
+              <ProtectedRoute>
+                <Accounts />
+              </ProtectedRoute>
+            } />
+            <Route path="/transactions" element={
+              <ProtectedRoute>
+                <Transactions />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
