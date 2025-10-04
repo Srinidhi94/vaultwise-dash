@@ -34,24 +34,7 @@ const Auth = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const testDatabaseConnection = async () => {
-    try {
-      console.log('Testing database connection...');
-      const { data, error } = await supabase.from('user_profiles').select('count').limit(1);
-      if (error) {
-        console.error('Database connection error:', error);
-        setError('Database connection failed: ' + error.message);
-      } else {
-        console.log('Database connection successful:', data);
-        setSuccess('Database connection successful!');
-      }
-    } catch (err) {
-      console.error('Unexpected database error:', err);
-      setError('Unexpected database error');
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
@@ -129,7 +112,7 @@ const Auth = () => {
                 </Alert>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+              <form onSubmit={handleLogin} className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -177,18 +160,6 @@ const Auth = () => {
         <p className="text-center text-white/70 text-sm">
           Your financial data is encrypted and secure
         </p>
-        
-        {/* Temporary debug button */}
-        <div className="text-center">
-          <Button 
-            onClick={testDatabaseConnection}
-            variant="outline" 
-            size="sm"
-            className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-          >
-            Test Database Connection
-          </Button>
-        </div>
       </div>
     </div>
   );
