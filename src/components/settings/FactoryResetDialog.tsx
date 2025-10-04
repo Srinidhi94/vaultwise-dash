@@ -151,11 +151,11 @@ export const FactoryResetDialog = ({
               <p>• All your accounts (savings & credit cards)</p>
               <p>• All your categories</p>
               <p>• Your profile and preferences</p>
-              <p>• Your entire VaultWise account</p>
+              <p>• Your entire SpendWise account</p>
             </div>
 
             <p className="text-xs text-muted-foreground">
-              You will be signed out and will need to create a new account to use VaultWise again.
+              You will be signed out and will need to create a new account to use SpendWise again.
             </p>
           </DialogDescription>
         </DialogHeader>

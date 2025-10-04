@@ -86,7 +86,7 @@ const Auth = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm mb-4">
             <CreditCard className="w-8 h-8" />
           </div>
-          <h1 className="text-3xl font-bold mb-2">VaultWise</h1>
+          <h1 className="text-3xl font-bold mb-2">SpendWise</h1>
           <p className="text-white/80">Your Personal Finance Dashboard</p>
         </div>
 

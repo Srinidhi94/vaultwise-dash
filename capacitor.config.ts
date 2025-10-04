@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.vaultwise.app',
-  appName: 'VaultWise',
+  appId: 'com.spendwise.app',
+  appName: 'SpendWise',
   webDir: 'dist',
   ios: {
     contentInset: 'always'

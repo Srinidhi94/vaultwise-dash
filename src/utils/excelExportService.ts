@@ -219,7 +219,7 @@ export class ExcelExportService {
 
     // Create a more visual layout
     const summaryData = [
-      ['VaultWise Financial Dashboard', '', '', ''],
+      ['SpendWise Financial Dashboard', '', '', ''],
       ['', '', '', ''],
       ['💰 INCOME SUMMARY', '', '', ''],
       ['Total Income', this.formatAmount(totalIncome), '', ''],
@@ -308,7 +308,7 @@ export class ExcelExportService {
       ? `${format(start, 'yyyy-MM-dd')}_to_${format(end, 'yyyy-MM-dd')}`
       : 'all_time';
     
-    const filename = `vaultwise_transactions_${dateRangeText}.xlsx`;
+    const filename = `spendwise_transactions_${dateRangeText}.xlsx`;
 
     // Write and download
     XLSX.writeFile(this.workbook, filename);

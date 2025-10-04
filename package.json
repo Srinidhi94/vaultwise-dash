@@ -1,8 +1,8 @@
 {
-  "name": "vaultwise-dashboard",
+  "name": "spendwise-dashboard",
   "private": true,
   "version": "1.0.0",
-  "description": "Modern personal finance dashboard with AI-powered bank statement processing",
+  "description": "SpendWise - Modern personal finance dashboard with AI-powered bank statement processing",
   "author": "Srinidhi Rao",
   "license": "UNLICENSED",
   "repository": {

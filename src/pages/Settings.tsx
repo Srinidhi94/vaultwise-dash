@@ -128,7 +128,7 @@ const Settings = () => {
         { 
           icon: Trash2, 
           label: "Factory Reset", 
-          description: "Delete all data and leave VaultWise",
+          description: "Delete all data and leave SpendWise",
           onClick: () => setIsFactoryResetDialogOpen(true),
           danger: true
         },
@@ -221,7 +221,7 @@ const Settings = () => {
         {/* App Information */}
         <Card>
           <CardHeader>
-            <CardTitle>About VaultWise</CardTitle>
+            <CardTitle>About SpendWise</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
