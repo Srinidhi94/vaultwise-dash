@@ -1,13 +1,21 @@
 import { useEffect, useState } from "react";
 import { useAccountsStore } from "@/stores/useAccountsStore";
+import { useProfileStore } from "@/stores/useProfileStore";
+import { usePreferencesStore } from "@/stores/usePreferencesStore";
+import { useTransactionsStore } from "@/stores/useTransactionsStore";
+import { getCreditCardDetails } from "@/utils/creditCardUtils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, CreditCard, Wallet, Trash2 } from "lucide-react";
+import { Plus, CreditCard, Wallet, Trash2, Edit } from "lucide-react";
 import BottomNavigation from "@/components/layout/BottomNavigation";
+import { EditSavingsAccountDialog, EditCreditCardDialog } from "@/components/accounts/EditAccountDialog";
+import { DeleteAccountDialog } from "@/components/accounts/DeleteAccountDialog";
+import { ReactivateAccountDialog } from "@/components/accounts/ReactivateAccountDialog";
 import { toast } from "sonner";
 
 const Accounts = () => {
@@ -17,10 +25,20 @@ const Accounts = () => {
     fetchAccounts, 
     addSavingsAccount, 
     addCreditCard,
+    updateSavingsAccount,
+    updateCreditCard,
+    inactivateSavingsAccount,
+    inactivateCreditCard,
+    reactivateSavingsAccount,
+    reactivateCreditCard,
     deleteSavingsAccount,
     deleteCreditCard,
     loading 
   } = useAccountsStore();
+  
+  const { transactions, fetchTransactions } = useTransactionsStore();
+  const { fetchProfile } = useProfileStore();
+  const { currencySymbol } = usePreferencesStore();
   
   const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
   const [accountType, setAccountType] = useState<'savings' | 'credit'>('savings');
@@ -29,16 +47,29 @@ const Accounts = () => {
     currentBalance: '',
     creditLimit: ''
   });
+  
+  // Edit dialog state
+  const [editSavingsDialog, setEditSavingsDialog] = useState<{ open: boolean; account: any | null }>({ open: false, account: null });
+  const [editCreditDialog, setEditCreditDialog] = useState<{ open: boolean; card: any | null }>({ open: false, card: null });
+  
+  // Delete dialog state
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; account: any | null; type: 'savings' | 'credit' | null }>({ open: false, account: null, type: null });
+  
+  // Reactivate dialog state
+  const [reactivateDialog, setReactivateDialog] = useState<{ open: boolean; account: any | null; type: 'savings' | 'credit' | null }>({ open: false, account: null, type: null });
 
   useEffect(() => {
     fetchAccounts();
-  }, [fetchAccounts]);
+    fetchProfile();
+    fetchTransactions();
+  }, [fetchAccounts, fetchProfile, fetchTransactions]);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    const formatted = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
+    return `${currencySymbol}${formatted}`;
   };
 
   const handleAddAccount = async () => {
@@ -67,16 +98,45 @@ const Accounts = () => {
     }
   };
 
-  const handleDeleteAccount = async (id: string, type: 'savings' | 'credit') => {
-    try {
-      if (type === 'savings') {
-        await deleteSavingsAccount(id);
-      } else {
-        await deleteCreditCard(id);
-      }
-      toast.success("Account deleted successfully!");
-    } catch (error) {
-      toast.error("Failed to delete account");
+  const handleSaveOpeningBalance = async (id: string, opening_balance: number) => {
+    await updateSavingsAccount(id, { opening_balance });
+    await fetchAccounts();
+  };
+
+  const handleSaveCreditLimit = async (id: string, credit_limit: number) => {
+    await updateCreditCard(id, { credit_limit });
+    await fetchAccounts();
+  };
+
+  const handleInactivateAccount = async () => {
+    if (!deleteDialog.account || !deleteDialog.type) return;
+    
+    if (deleteDialog.type === 'savings') {
+      await inactivateSavingsAccount(deleteDialog.account.id);
+    } else {
+      await inactivateCreditCard(deleteDialog.account.id);
+    }
+    await fetchAccounts();
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deleteDialog.account || !deleteDialog.type) return;
+    
+    if (deleteDialog.type === 'savings') {
+      await deleteSavingsAccount(deleteDialog.account.id);
+    } else {
+      await deleteCreditCard(deleteDialog.account.id);
+    }
+    await fetchAccounts();
+  };
+
+  const handleReactivateAccount = async () => {
+    if (!reactivateDialog.account || !reactivateDialog.type) return;
+    
+    if (reactivateDialog.type === 'savings') {
+      await reactivateSavingsAccount(reactivateDialog.account.id);
+    } else {
+      await reactivateCreditCard(reactivateDialog.account.id);
     }
   };
 
@@ -133,17 +193,19 @@ const Accounts = () => {
                   />
                 </div>
                 
-                <div>
-                  <Label htmlFor="currentBalance">Current Balance</Label>
-                  <Input
-                    id="currentBalance"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={formData.currentBalance}
-                    onChange={(e) => setFormData({...formData, currentBalance: e.target.value})}
-                  />
-                </div>
+                {accountType === 'savings' && (
+                  <div>
+                    <Label htmlFor="openingBalance">Opening Balance</Label>
+                    <Input
+                      id="openingBalance"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={formData.currentBalance}
+                      onChange={(e) => setFormData({...formData, currentBalance: e.target.value})}
+                    />
+                  </div>
+                )}
                 
                 {accountType === 'credit' && (
                   <div>
@@ -185,20 +247,48 @@ const Accounts = () => {
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {savingsAccounts.map((account) => (
-                <Card key={account.id} className="financial-card">
+                <Card key={account.id} className={`financial-card ${!account.is_active ? 'opacity-60 bg-muted/50' : ''}`}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{account.name}</CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteAccount(account.id, 'savings')}
-                      className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-sm font-medium">{account.name}</CardTitle>
+                      {!account.is_active && (
+                        <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {account.is_active ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditSavingsDialog({ open: true, account })}
+                            className="h-8 w-8 p-0 hover:bg-primary/10"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteDialog({ open: true, account, type: 'savings' })}
+                            className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setReactivateDialog({ open: true, account, type: 'savings' })}
+                          className="h-8 px-3 text-xs"
+                        >
+                          Reactivate
+                        </Button>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-primary">
+                    <div className={`text-2xl font-bold ${account.is_active ? 'text-primary' : 'text-muted-foreground'}`}>
                       {formatCurrency(account.current_balance)}
                     </div>
                     <CardDescription>
@@ -228,46 +318,136 @@ const Accounts = () => {
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {creditCards.map((card) => (
-                <Card key={card.id} className="financial-card">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{card.name}</CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteAccount(card.id, 'credit')}
-                      className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-primary">
-                      {formatCurrency(card.current_balance)}
-                    </div>
-                    <CardDescription>
-                      Limit: {formatCurrency(card.credit_limit)}
-                    </CardDescription>
-                    <div className="mt-2">
-                      <div className="text-xs text-muted-foreground mb-1">
-                        Utilization: {((card.current_balance / card.credit_limit) * 100).toFixed(1)}%
+              {creditCards.map((card) => {
+                const details = getCreditCardDetails(card.id, card.credit_limit, transactions);
+                return (
+                  <Card key={card.id} className={`financial-card ${!card.is_active ? 'opacity-60 bg-muted/50' : ''}`}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-sm font-medium">{card.name}</CardTitle>
+                        {!card.is_active && (
+                          <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                        )}
                       </div>
-                      <div className="w-full bg-secondary rounded-full h-2">
-                        <div 
-                          className="bg-primary h-2 rounded-full transition-all duration-300" 
-                          style={{ 
-                            width: `${Math.min((card.current_balance / card.credit_limit) * 100, 100)}%` 
-                          }}
-                        ></div>
+                      <div className="flex items-center gap-1">
+                        {card.is_active ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditCreditDialog({ open: true, card })}
+                              className="h-8 w-8 p-0 hover:bg-primary/10"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteDialog({ open: true, account: card, type: 'credit' })}
+                              className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setReactivateDialog({ open: true, account: card, type: 'credit' })}
+                            className="h-8 px-3 text-xs"
+                          >
+                            Reactivate
+                          </Button>
+                        )}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-1">Credit Limit</div>
+                          <div className="text-2xl font-bold text-primary">
+                            {formatCurrency(details.limit)}
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <div className="text-xs text-muted-foreground mb-1">Used This Month</div>
+                            <div className="text-lg font-semibold text-destructive">
+                              {formatCurrency(details.used)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground mb-1">Available</div>
+                            <div className="text-lg font-semibold text-success">
+                              {formatCurrency(details.available)}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <div className="text-xs text-muted-foreground mb-1">
+                            Utilization for this month: {details.utilization.toFixed(1)}%
+                          </div>
+                          <div className="w-full bg-secondary rounded-full h-2">
+                            <div 
+                              className={`h-full rounded-full transition-all ${
+                                details.utilization > 70 ? 'bg-destructive' : 
+                                details.utilization > 30 ? 'bg-warning' : 
+                                'bg-success'
+                              }`}
+                              style={{ width: `${Math.min(details.utilization, 100)}%` }}
+                            >
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
+      
+      {/* Edit Dialogs */}
+      {editSavingsDialog.account && (
+        <EditSavingsAccountDialog
+          open={editSavingsDialog.open}
+          onOpenChange={(open) => setEditSavingsDialog({ open, account: null })}
+          account={editSavingsDialog.account}
+          onSave={handleSaveOpeningBalance}
+        />
+      )}
+      
+      {editCreditDialog.card && (
+        <EditCreditCardDialog
+          open={editCreditDialog.open}
+          onOpenChange={(open) => setEditCreditDialog({ open, card: null })}
+          card={editCreditDialog.card}
+          onSave={handleSaveCreditLimit}
+        />
+      )}
+      
+      {/* Delete Dialog */}
+      <DeleteAccountDialog
+        open={deleteDialog.open && !!deleteDialog.account && !!deleteDialog.type}
+        onOpenChange={(open) => setDeleteDialog({ open, account: null, type: null })}
+        accountName={deleteDialog.account?.name || ""}
+        accountType={deleteDialog.type || "savings"}
+        onInactivate={handleInactivateAccount}
+        onDelete={handleDeleteAccount}
+      />
+      
+      {/* Reactivate Dialog */}
+      <ReactivateAccountDialog
+        open={reactivateDialog.open && !!reactivateDialog.account && !!reactivateDialog.type}
+        onOpenChange={(open) => setReactivateDialog({ open, account: null, type: null })}
+        accountName={reactivateDialog.account?.name || ""}
+        accountType={reactivateDialog.type || "savings"}
+        onConfirm={handleReactivateAccount}
+      />
       
       <BottomNavigation />
     </div>

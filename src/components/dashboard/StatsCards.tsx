@@ -3,15 +3,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, DollarSign, CreditCard } from 'lucide-react';
 import { useTransactionsStore } from '@/stores/useTransactionsStore';
 import { useAccountsStore } from '@/stores/useAccountsStore';
+import { calculateTotalCreditUtilization } from '@/utils/creditCardUtils';
 
 const StatsCards = () => {
-  const { getMonthlyIncome, getMonthlyExpenses, getNetCashFlow } = useTransactionsStore();
-  const { getCreditUtilization } = useAccountsStore();
+  const { getMonthlyIncome, getMonthlyExpenses, getNetCashFlow, transactions } = useTransactionsStore();
+  const { creditCards } = useAccountsStore();
 
   const monthlyIncome = getMonthlyIncome();
   const monthlyExpenses = getMonthlyExpenses();
   const netCashFlow = getNetCashFlow();
-  const creditUtilization = getCreditUtilization();
+  const creditUtilization = calculateTotalCreditUtilization(creditCards, transactions);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

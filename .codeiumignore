@@ -1,0 +1,88 @@
+# Codeium Ignore File for VaultWise Dashboard
+
+# Allow documentation and planning files for AI analysis
+# docs/project-planning/
+# *.md
+
+# Ignore build outputs and dependencies
+dist/
+build/
+node_modules/
+.next/
+.vercel/
+
+# Ignore environment and config files (contain secrets)
+.env*
+!.env.example
+.secrets/
+.private/
+
+# Ignore IDE and system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Ignore test coverage and reports
+coverage/
+.nyc_output/
+junit.xml
+test-results/
+
+# Ignore logs and temporary files
+logs/
+*.log
+.tmp/
+.cache/
+
+# Ignore package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# Ignore git files
+.git/
+.gitignore
+
+# Ignore deployment and CI files
+.github/
+.gitlab-ci.yml
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Ignore backup and temporary files
+*.bak
+*.backup
+*.tmp
+*~
+
+# Ignore generated files
+*.generated.ts
+*.generated.js
+auto-generated/
+
+# Ignore large media files
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.webm
+
+# Ignore database dumps and backups (may contain sensitive data)
+*.sql.backup
+*.dump
+# Allow migrations for AI analysis
+# migrations/*.sql
+
+# Ignore analytics and tracking files
+analytics/
+tracking/
+*.analytics.js
+
+# Ignore license and legal files
+LICENSE
+COPYING
+COPYRIGHT

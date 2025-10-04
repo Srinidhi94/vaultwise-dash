@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
 import { useTransactionsStore } from "@/stores/useTransactionsStore";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAccountsStore } from "@/stores/useAccountsStore";
+import { usePreferencesStore } from "@/stores/usePreferencesStore";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter, TrendingUp, TrendingDown, Calendar, Trash2 } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Calendar, Trash2, Edit } from "lucide-react";
 import BottomNavigation from "@/components/layout/BottomNavigation";
+import { FloatingActionButton } from "@/components/ui/floating-action-button";
+import { AddTransactionSheet } from "@/components/transactions/AddTransactionSheet";
+import { AddTransactionDialog } from "@/components/transactions/AddTransactionDialog";
+import { EditTransactionDialog } from "@/components/transactions/EditTransactionDialog";
+import { TransactionDetailDialog } from "@/components/transactions/TransactionDetailDialog";
+import { DeleteTransactionDialog } from "@/components/transactions/DeleteTransactionDialog";
+import { TransactionFilters } from "@/components/transactions/TransactionFilters";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -17,68 +21,64 @@ const Transactions = () => {
   const { 
     transactions, 
     categories, 
-    filters,
     loading,
     fetchTransactions, 
     fetchCategories,
-    addTransaction,
     deleteTransaction,
-    setFilters,
     getFilteredTransactions
   } = useTransactionsStore();
+  const { fetchAccounts, savingsAccounts, creditCards } = useAccountsStore();
+  const { currencySymbol } = usePreferencesStore();
   
+  const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [formData, setFormData] = useState({
-    amount: '',
-    description: '',
-    category_id: '',
-    transaction_type: 'expense' as 'income' | 'expense'
-  });
+  const [isEditTransactionOpen, setIsEditTransactionOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<typeof transactions[0] | null>(null);
 
   useEffect(() => {
     fetchTransactions();
     fetchCategories();
-  }, [fetchTransactions, fetchCategories]);
+    fetchAccounts();
+  }, [fetchTransactions, fetchCategories, fetchAccounts]);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    const formatted = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
+    return `${currencySymbol}${formatted}`;
   };
 
-  const handleAddTransaction = async () => {
-    try {
-      if (!formData.amount || !formData.description || !formData.category_id) {
-        toast.error("Please fill in all required fields");
-        return;
-      }
-
-      await addTransaction({
-        amount: parseFloat(formData.amount),
-        description: formData.description,
-        category_id: formData.category_id,
-        transaction_type: formData.transaction_type,
-        transaction_date: new Date().toISOString().split('T')[0],
-        account_id: 'default-account',
-        account_type: 'savings'
-      });
-      
-      setFormData({ amount: '', description: '', category_id: '', transaction_type: 'expense' });
-      setIsAddTransactionOpen(false);
-      toast.success("Transaction added successfully!");
-    } catch (error) {
-      toast.error("Failed to add transaction");
-    }
+  const handleViewTransaction = (transaction: typeof transactions[0]) => {
+    setSelectedTransaction(transaction);
+    setIsDetailDialogOpen(true);
   };
 
-  const handleDeleteTransaction = async (id: string) => {
-    try {
-      await deleteTransaction(id);
-      toast.success("Transaction deleted successfully!");
-    } catch (error) {
-      toast.error("Failed to delete transaction");
+  const handleEditTransaction = (transaction: typeof transactions[0]) => {
+    setSelectedTransaction(transaction);
+    setIsEditTransactionOpen(true);
+  };
+
+  const handleDeleteClick = (transaction: typeof transactions[0]) => {
+    setSelectedTransaction(transaction);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedTransaction) return;
+    
+    await deleteTransaction(selectedTransaction.id);
+    await fetchTransactions();
+    await fetchAccounts();
+  };
+
+  const getAccountName = (accountId: string, accountType: string) => {
+    if (accountType === 'savings') {
+      return savingsAccounts.find(a => a.id === accountId)?.name || 'Unknown Account';
+    } else {
+      return creditCards.find(c => c.id === accountId)?.name || 'Unknown Card';
     }
   };
 
@@ -102,121 +102,18 @@ const Transactions = () => {
             <p className="text-muted-foreground">Track your income and expenses</p>
           </div>
           
-          <Dialog open={isAddTransactionOpen} onOpenChange={setIsAddTransactionOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Add Transaction
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Transaction</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="transactionType">Transaction Type</Label>
-                  <Select 
-                    value={formData.transaction_type} 
-                    onValueChange={(value: 'income' | 'expense') => 
-                      setFormData({...formData, transaction_type: value})
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="income">Income</SelectItem>
-                      <SelectItem value="expense">Expense</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="amount">Amount</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Input
-                    id="description"
-                    placeholder="e.g., Grocery shopping, Salary"
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="category">Category</Label>
-                  <Select 
-                    value={formData.category_id} 
-                    onValueChange={(value) => setFormData({...formData, category_id: value})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <Button onClick={handleAddTransaction} className="w-full">
-                  Add Transaction
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            size="sm" 
+            className="flex items-center gap-2"
+            onClick={() => setIsAddSheetOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Add Transaction
+          </Button>
         </div>
 
-        {/* Search and Filter */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    placeholder="Search transactions..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <Select 
-                value={filters.categoryId || "all"} 
-                onValueChange={(value) => 
-                  setFilters({ ...filters, categoryId: value === "all" ? undefined : value })
-                }
-              >
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Filters */}
+        <TransactionFilters />
 
         {/* Transactions List */}
         <div className="space-y-4">
@@ -226,10 +123,7 @@ const Transactions = () => {
                 <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No transactions found</h3>
                 <p className="text-muted-foreground mb-4">
-                  {searchTerm || filters.categoryId 
-                    ? "Try adjusting your search or filters" 
-                    : "Start by adding your first transaction"
-                  }
+                  Try adjusting your filters or add your first transaction
                 </p>
               </CardContent>
             </Card>
@@ -238,7 +132,11 @@ const Transactions = () => {
               {filteredTransactions.map((transaction) => {
                 const category = categories.find(c => c.id === transaction.category_id);
                 return (
-                  <Card key={transaction.id} className="financial-card">
+                  <Card 
+                    key={transaction.id} 
+                    className="financial-card cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => handleViewTransaction(transaction)}
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3 flex-1 min-w-0">
@@ -260,12 +158,12 @@ const Transactions = () => {
                                 {category?.name}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
-                                {format(new Date(transaction.created_at), 'MMM dd')}
+                                {format(new Date(transaction.transaction_date), 'MMM dd, yyyy')}
                               </span>
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col items-end gap-2">
                           <div className={`text-lg font-semibold ${
                             transaction.transaction_type === 'income' 
                               ? 'text-success' 
@@ -274,14 +172,30 @@ const Transactions = () => {
                             {transaction.transaction_type === 'income' ? '+' : '-'}
                             {formatCurrency(Math.abs(transaction.amount))}
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteTransaction(transaction.id)}
-                            className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditTransaction(transaction);
+                              }}
+                              className="h-7 w-7 p-0 hover:bg-primary/10"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteClick(transaction);
+                              }}
+                              className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
@@ -292,6 +206,62 @@ const Transactions = () => {
           )}
         </div>
       </div>
+      
+      <FloatingActionButton
+        onClick={() => setIsAddSheetOpen(true)}
+        ariaLabel="Add transaction"
+      />
+      
+      <AddTransactionSheet
+        open={isAddSheetOpen}
+        onOpenChange={setIsAddSheetOpen}
+      />
+      
+      <AddTransactionDialog 
+        open={isAddTransactionOpen}
+        onOpenChange={setIsAddTransactionOpen}
+        onSuccess={() => {
+          fetchTransactions();
+          fetchAccounts();
+        }}
+      />
+      
+      <EditTransactionDialog
+        open={isEditTransactionOpen}
+        onOpenChange={setIsEditTransactionOpen}
+        transaction={selectedTransaction}
+        onSuccess={() => {
+          fetchTransactions();
+          fetchAccounts();
+        }}
+      />
+
+      <TransactionDetailDialog
+        open={isDetailDialogOpen}
+        onOpenChange={setIsDetailDialogOpen}
+        transaction={selectedTransaction}
+        category={selectedTransaction ? categories.find(c => c.id === selectedTransaction.category_id) : null}
+        accountName={selectedTransaction ? getAccountName(selectedTransaction.account_id, selectedTransaction.account_type) : ''}
+        currencySymbol={currencySymbol}
+        onEdit={() => {
+          setIsDetailDialogOpen(false);
+          handleEditTransaction(selectedTransaction!);
+        }}
+        onDelete={() => {
+          if (selectedTransaction) {
+            handleDeleteClick(selectedTransaction);
+          }
+        }}
+      />
+
+      <DeleteTransactionDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        transactionDescription={selectedTransaction?.description || ''}
+        transactionAmount={selectedTransaction?.amount || 0}
+        currencySymbol={currencySymbol}
+        onConfirm={handleConfirmDelete}
+      />
       
       <BottomNavigation />
     </div>

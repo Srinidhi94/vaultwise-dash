@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { usePreferencesStore } from "@/stores/usePreferencesStore";
 import { useEffect } from "react";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
@@ -43,11 +44,19 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
-  const { initialize } = useAuthStore();
+  const { initialize, user } = useAuthStore();
+  const { load: loadPreferences } = usePreferencesStore();
   
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // Load user preferences when authenticated
+  useEffect(() => {
+    if (user) {
+      loadPreferences();
+    }
+  }, [user, loadPreferences]);
   
   return (
     <QueryClientProvider client={queryClient}>

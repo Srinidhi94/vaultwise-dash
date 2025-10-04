@@ -14,8 +14,8 @@ interface AuthState {
   setSession: (session: Session | null) => void;
   setLoading: (loading: boolean) => void;
   setInitialized: (initialized: boolean) => void;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   initialize: () => void;
 }
@@ -47,30 +47,35 @@ export const useAuthStore = create<AuthState>()(
         set({ loading: true });
         const redirectUrl = `${window.location.origin}/`;
         
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: redirectUrl
-          }
-        });
+        try {
+          const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: redirectUrl
+            }
+          });
 
-        // Create user profile if signup successful
-        if (!error && data.user) {
-          const { error: profileError } = await supabase
-            .from('user_profiles')
-            .insert({
-              id: data.user.id,
-              currency_symbol: '$',
-            });
-          
-          if (profileError) {
-            console.error('Error creating profile:', profileError);
+          if (error) {
+            console.error('Signup error:', error);
+            set({ loading: false });
+            return { error };
           }
+
+          if (data.user) {
+            console.log('User created successfully:', data.user.id);
+            // User profile will be created automatically by database trigger
+            // Wait a moment for the trigger to execute
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+          
+          set({ loading: false });
+          return { error: null };
+        } catch (err) {
+          console.error('Unexpected signup error:', err);
+          set({ loading: false });
+          return { error: err };
         }
-        
-        set({ loading: false });
-        return { error };
       },
 
       signOut: async () => {

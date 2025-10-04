@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useProfileStore } from "@/stores/useProfileStore";
+import { useTransactionsStore } from "@/stores/useTransactionsStore";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -8,19 +10,46 @@ import {
   User, 
   Shield, 
   Bell, 
-  CreditCard, 
   Globe, 
   LogOut, 
   ChevronRight,
   Mail,
-  Calendar
+  Download,
+  Settings as SettingsIcon,
+  Database,
+  RefreshCw,
+  Lock,
+  Trash2
 } from "lucide-react";
 import BottomNavigation from "@/components/layout/BottomNavigation";
+import { SubscriptionDialog } from "@/components/settings/SubscriptionDialog";
+import { CurrencySettingsDialog } from "@/components/settings/CurrencySettingsDialog";
+import { DataExportDialog } from "@/components/settings/DataExportDialog";
+import { AccountManagementDialog } from "@/components/settings/AccountManagementDialog";
+import { ManageCategoriesDialog } from "@/components/settings/ManageCategoriesDialog";
+import { ProfileSettingsDialog } from "@/components/settings/ProfileSettingsDialog";
+import { ChangePasswordDialog } from "@/components/settings/ChangePasswordDialog";
+import { FactoryResetDialog } from "@/components/settings/FactoryResetDialog";
 import { toast } from "sonner";
 
 const Settings = () => {
   const { user, signOut } = useAuthStore();
+  const { isPaidUser, fetchProfile, getDisplayName } = useProfileStore();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isSubscriptionDialogOpen, setIsSubscriptionDialogOpen] = useState(false);
+  const [isCurrencyDialogOpen, setIsCurrencyDialogOpen] = useState(false);
+  const [isDataExportDialogOpen, setIsDataExportDialogOpen] = useState(false);
+  const [isAccountManagementDialogOpen, setIsAccountManagementDialogOpen] = useState(false);
+  const [isManageCategoriesDialogOpen, setIsManageCategoriesDialogOpen] = useState(false);
+  const [isProfileSettingsDialogOpen, setIsProfileSettingsDialogOpen] = useState(false);
+  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false);
+  const [isFactoryResetDialogOpen, setIsFactoryResetDialogOpen] = useState(false);
+  
+  const isPaid = isPaidUser();
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const handleSignOut = async () => {
     try {
@@ -34,28 +63,75 @@ const Settings = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    }).format(new Date(dateString));
-  };
 
   const settingsCategories = [
     {
-      title: "Account",
+      title: "Profile",
       items: [
-        { icon: User, label: "Profile Settings", description: "Update your personal information" },
-        { icon: Shield, label: "Privacy & Security", description: "Manage your security preferences" },
-        { icon: Bell, label: "Notifications", description: "Configure notification settings" },
+        { 
+          icon: User, 
+          label: "Profile Settings", 
+          description: "Update your display name and info",
+          onClick: () => setIsProfileSettingsDialogOpen(true)
+        },
+        { 
+          icon: Lock, 
+          label: "Change Password", 
+          description: "Update your account password",
+          onClick: () => setIsChangePasswordDialogOpen(true)
+        },
       ]
     },
     {
-      title: "Financial",
+      title: "Preferences",
       items: [
-        { icon: CreditCard, label: "Payment Methods", description: "Manage linked accounts and cards" },
-        { icon: Globe, label: "Currency & Region", description: "Set your preferred currency" },
+        { 
+          icon: Globe, 
+          label: "Currency & Region", 
+          description: "Set your preferred currency",
+          onClick: () => setIsCurrencyDialogOpen(true)
+        },
+        { 
+          icon: Bell, 
+          label: "Notifications", 
+          description: "Configure notification settings",
+          onClick: () => toast.info("Notifications - Coming soon!")
+        },
+      ]
+    },
+    {
+      title: "Account Management",
+      items: [
+        { 
+          icon: SettingsIcon, 
+          label: "Account Overview", 
+          description: "View limits and manage accounts",
+          onClick: () => setIsAccountManagementDialogOpen(true)
+        },
+      ]
+    },
+    {
+      title: "Data & Privacy",
+      items: [
+        { 
+          icon: Download, 
+          label: "Export Data", 
+          description: "Download your transaction history",
+          onClick: () => setIsDataExportDialogOpen(true)
+        },
+        { 
+          icon: RefreshCw, 
+          label: "Manage Categories", 
+          description: "Add, edit, or organize transaction categories",
+          onClick: () => setIsManageCategoriesDialogOpen(true)
+        },
+        { 
+          icon: Trash2, 
+          label: "Factory Reset", 
+          description: "Delete all data and leave VaultWise",
+          onClick: () => setIsFactoryResetDialogOpen(true),
+          danger: true
+        },
       ]
     }
   ];
@@ -77,18 +153,22 @@ const Settings = () => {
                 <User className="h-8 w-8 text-primary" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold">{user?.email}</h3>
+                <h3 className="text-lg font-semibold">{getDisplayName()}</h3>
+                <p className="text-sm text-muted-foreground">{user?.email}</p>
                 <div className="flex items-center gap-2 mt-2">
                   <Badge variant="secondary" className="flex items-center gap-1">
                     <Mail className="h-3 w-3" />
                     Verified
                   </Badge>
-                  {user?.created_at && (
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      Since {formatDate(user.created_at)}
-                    </Badge>
-                  )}
+                  <Badge 
+                    variant={isPaid ? "default" : "secondary"}
+                    className={`cursor-pointer hover:opacity-80 transition-opacity ${
+                      isPaid ? 'bg-success hover:bg-success' : ''
+                    }`}
+                    onClick={() => setIsSubscriptionDialogOpen(true)}
+                  >
+                    {isPaid ? 'Paid Plan' : 'Free Plan'}
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -104,15 +184,25 @@ const Settings = () => {
                 {category.items.map((item, itemIndex) => (
                   <div key={itemIndex}>
                     <button
-                      className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors text-left"
-                      onClick={() => toast.info(`${item.label} - Coming soon!`)}
+                      className={`w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors text-left ${
+                        (item as any).danger ? 'hover:bg-destructive/10' : ''
+                      }`}
+                      onClick={item.onClick}
                     >
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
-                          <item.icon className="h-5 w-5 text-primary" />
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                          (item as any).danger 
+                            ? 'bg-destructive/20' 
+                            : 'bg-primary/20'
+                        }`}>
+                          <item.icon className={`h-5 w-5 ${
+                            (item as any).danger ? 'text-destructive' : 'text-primary'
+                          }`} />
                         </div>
                         <div>
-                          <p className="font-medium text-foreground">{item.label}</p>
+                          <p className={`font-medium ${
+                            (item as any).danger ? 'text-destructive' : 'text-foreground'
+                          }`}>{item.label}</p>
                           <p className="text-sm text-muted-foreground">{item.description}</p>
                         </div>
                       </div>
@@ -137,10 +227,6 @@ const Settings = () => {
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Version</span>
               <Badge variant="outline">1.0.0</Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Built with</span>
-              <Badge variant="outline">Lovable</Badge>
             </div>
             <Separator />
             <div className="space-y-2">
@@ -181,6 +267,46 @@ const Settings = () => {
           </CardContent>
         </Card>
       </div>
+      
+      <SubscriptionDialog
+        open={isSubscriptionDialogOpen}
+        onOpenChange={setIsSubscriptionDialogOpen}
+      />
+      
+      <CurrencySettingsDialog
+        open={isCurrencyDialogOpen}
+        onOpenChange={setIsCurrencyDialogOpen}
+      />
+      
+      <DataExportDialog
+        open={isDataExportDialogOpen}
+        onOpenChange={setIsDataExportDialogOpen}
+      />
+      
+      <AccountManagementDialog
+        open={isAccountManagementDialogOpen}
+        onOpenChange={setIsAccountManagementDialogOpen}
+      />
+
+      <ManageCategoriesDialog
+        open={isManageCategoriesDialogOpen}
+        onOpenChange={setIsManageCategoriesDialogOpen}
+      />
+
+      <ProfileSettingsDialog
+        open={isProfileSettingsDialogOpen}
+        onOpenChange={setIsProfileSettingsDialogOpen}
+      />
+
+      <ChangePasswordDialog
+        open={isChangePasswordDialogOpen}
+        onOpenChange={setIsChangePasswordDialogOpen}
+      />
+
+      <FactoryResetDialog
+        open={isFactoryResetDialogOpen}
+        onOpenChange={setIsFactoryResetDialogOpen}
+      />
       
       <BottomNavigation />
     </div>

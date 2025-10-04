@@ -1,26 +1,29 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuthStore } from './useAuthStore';
+import { calculateSavingsBalance, calculateCreditCardBalance } from '@/utils/accountBalanceUtils';
+import { useTransactionsStore } from './useTransactionsStore';
 
-interface SavingsAccount {
+export interface SavingsAccount {
   id: string;
   user_id: string;
   name: string;
   description?: string;
   opening_balance: number;
-  current_balance: number;
+  current_balance: number; // Calculated dynamically
   is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
-interface CreditCard {
+export interface CreditCard {
   id: string;
   user_id: string;
   name: string;
   description?: string;
   credit_limit: number;
-  current_balance: number;
+  current_balance: number; // Calculated dynamically
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -37,6 +40,10 @@ interface AccountsState {
   addCreditCard: (card: Omit<CreditCard, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateSavingsAccount: (id: string, updates: Partial<SavingsAccount>) => Promise<void>;
   updateCreditCard: (id: string, updates: Partial<CreditCard>) => Promise<void>;
+  inactivateSavingsAccount: (id: string) => Promise<void>;
+  inactivateCreditCard: (id: string) => Promise<void>;
+  reactivateSavingsAccount: (id: string) => Promise<void>;
+  reactivateCreditCard: (id: string) => Promise<void>;
   deleteSavingsAccount: (id: string) => Promise<void>;
   deleteCreditCard: (id: string) => Promise<void>;
   
@@ -45,6 +52,9 @@ interface AccountsState {
   getTotalCreditUsed: () => number;
   getTotalCreditLimit: () => number;
   getCreditUtilization: () => number;
+  
+  // Recalculate balances from transactions
+  recalculateBalances: () => void;
 }
 
 export const useAccountsStore = create<AccountsState>()(
@@ -58,8 +68,8 @@ export const useAccountsStore = create<AccountsState>()(
         set({ loading: true });
         try {
           const [savingsResponse, creditResponse] = await Promise.all([
-            supabase.from('savings_accounts').select('*').eq('is_active', true).order('created_at'),
-            supabase.from('credit_cards').select('*').eq('is_active', true).order('created_at')
+            supabase.from('savings_accounts').select('*').order('created_at'),
+            supabase.from('credit_cards').select('*').order('created_at')
           ]);
 
           if (savingsResponse.error) throw savingsResponse.error;
@@ -69,6 +79,9 @@ export const useAccountsStore = create<AccountsState>()(
             savingsAccounts: savingsResponse.data || [],
             creditCards: creditResponse.data || [],
           });
+          
+          // Recalculate balances after fetching
+          get().recalculateBalances();
         } catch (error) {
           console.error('Error fetching accounts:', error);
         } finally {
@@ -140,7 +153,7 @@ export const useAccountsStore = create<AccountsState>()(
         }));
       },
 
-      deleteSavingsAccount: async (id) => {
+      inactivateSavingsAccount: async (id) => {
         const { error } = await supabase
           .from('savings_accounts')
           .update({ is_active: false })
@@ -148,12 +161,15 @@ export const useAccountsStore = create<AccountsState>()(
 
         if (error) throw error;
 
+        // Update the account in state instead of removing it
         set((state) => ({
-          savingsAccounts: state.savingsAccounts.filter((account) => account.id !== id),
+          savingsAccounts: state.savingsAccounts.map((account) =>
+            account.id === id ? { ...account, is_active: false } : account
+          ),
         }));
       },
 
-      deleteCreditCard: async (id) => {
+      inactivateCreditCard: async (id) => {
         const { error } = await supabase
           .from('credit_cards')
           .update({ is_active: false })
@@ -161,9 +177,78 @@ export const useAccountsStore = create<AccountsState>()(
 
         if (error) throw error;
 
+        // Update the card in state instead of removing it
+        set((state) => ({
+          creditCards: state.creditCards.map((card) =>
+            card.id === id ? { ...card, is_active: false } : card
+          ),
+        }));
+      },
+
+      reactivateSavingsAccount: async (id) => {
+        const { error } = await supabase
+          .from('savings_accounts')
+          .update({ is_active: true })
+          .eq('id', id);
+
+        if (error) throw error;
+
+        set((state) => ({
+          savingsAccounts: state.savingsAccounts.map((account) =>
+            account.id === id ? { ...account, is_active: true } : account
+          ),
+        }));
+      },
+
+      reactivateCreditCard: async (id) => {
+        const { error } = await supabase
+          .from('credit_cards')
+          .update({ is_active: true })
+          .eq('id', id);
+
+        if (error) throw error;
+
+        set((state) => ({
+          creditCards: state.creditCards.map((card) =>
+            card.id === id ? { ...card, is_active: true } : card
+          ),
+        }));
+      },
+
+      deleteSavingsAccount: async (id) => {
+        // Permanently delete account and all transactions (CASCADE)
+        const { error } = await supabase
+          .from('savings_accounts')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        set((state) => ({
+          savingsAccounts: state.savingsAccounts.filter((account) => account.id !== id),
+        }));
+
+        // Refresh transactions to remove deleted ones
+        const { useTransactionsStore } = await import('./useTransactionsStore');
+        await useTransactionsStore.getState().fetchTransactions();
+      },
+
+      deleteCreditCard: async (id) => {
+        // Permanently delete card and all transactions (CASCADE)
+        const { error } = await supabase
+          .from('credit_cards')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
         set((state) => ({
           creditCards: state.creditCards.filter((card) => card.id !== id),
         }));
+
+        // Refresh transactions to remove deleted ones
+        const { useTransactionsStore } = await import('./useTransactionsStore');
+        await useTransactionsStore.getState().fetchTransactions();
       },
 
       getTotalSavingsBalance: () => {
@@ -185,6 +270,32 @@ export const useAccountsStore = create<AccountsState>()(
         const totalUsed = get().getTotalCreditUsed();
         const totalLimit = get().getTotalCreditLimit();
         return totalLimit > 0 ? (totalUsed / totalLimit) * 100 : 0;
+      },
+
+      recalculateBalances: () => {
+        const { savingsAccounts, creditCards } = get();
+        const transactions = useTransactionsStore.getState().transactions;
+
+        // Recalculate savings account balances
+        const updatedSavings = savingsAccounts.map(account => ({
+          ...account,
+          current_balance: calculateSavingsBalance(
+            account.id,
+            account.opening_balance,
+            transactions
+          )
+        }));
+
+        // Recalculate credit card balances
+        const updatedCredit = creditCards.map(card => ({
+          ...card,
+          current_balance: calculateCreditCardBalance(card.id, transactions)
+        }));
+
+        set({
+          savingsAccounts: updatedSavings,
+          creditCards: updatedCredit,
+        });
       },
     }),
     { name: 'accounts-store' }

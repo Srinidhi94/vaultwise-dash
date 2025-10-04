@@ -1,73 +1,111 @@
-# Welcome to your Lovable project
+# VaultWise Dashboard
 
-## Project info
+**Status**: ✅ Fully Operational - Production Ready
 
-**URL**: https://lovable.dev/projects/a8c19dec-01cc-4656-bb30-813ebbd20616
+A modern personal finance management dashboard with AI-powered bank statement processing. Built with React, TypeScript, Supabase, and n8n.
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## 📊 Project Status
 
-**Use Lovable**
+### System Status
+- ✅ **Database**: PostgreSQL with RLS and proper schema
+- ✅ **n8n Workflow**: 28-node AI processing pipeline operational
+- ✅ **AI Integration**: GPT-4.1-mini + Claude Sonnet 4 (90-95% accuracy)
+- ✅ **Frontend**: Complete UI with responsive design
+- ✅ **Features**: Accounts, transactions, categories, AI uploads
+- ✅ **Documentation**: Comprehensive and up-to-date
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/a8c19dec-01cc-4656-bb30-813ebbd20616) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## ✨ Features
 
-**Use your preferred IDE**
+### Core Features
+- **Account Management**: Track savings accounts and credit cards
+- **Transaction Management**: Add, edit, delete, and categorize transactions
+- **Category System**: 32 default categories (income/expense) with custom categories
+- **Visual Analytics**: Charts and insights into spending patterns
+- **Secure Authentication**: Supabase Auth with Row Level Security
+- **Responsive Design**: Mobile-first design with bottom navigation
+- **Data Export**: Export transactions to Excel format
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### AI-Powered Features
+- **Bank Statement Processing**: Upload PDF/CSV statements for automatic processing
+- **Smart Account Detection**: Automatically identifies which account the statement belongs to
+- **Intelligent Categorization**: AI matches transactions to appropriate categories
+- **Duplicate Prevention**: Fuzzy matching prevents duplicate transaction entries
+- **High Accuracy**: 90-95% extraction accuracy with dual LLM validation
+- **Secure Processing**: Files deleted immediately after processing (never stored)
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 🛠️ Tech Stack
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- **Frontend**: React 18 + TypeScript + Vite
+- **UI**: shadcn/ui + Radix UI + Tailwind CSS
+- **Backend**: Supabase (PostgreSQL, Auth, Storage, RLS)
+- **AI Processing**: n8n + GPT-4.1-mini + Claude Sonnet 4
+- **State**: Zustand
+- **Forms**: React Hook Form + Yup
+- **Charts**: Recharts
+- **Routing**: React Router v6
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+---
 
-# Step 3: Install the necessary dependencies.
-npm i
+## 🚀 Getting Started
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### Prerequisites
+- **Node.js** 18+ and npm
+- **Supabase Account** (for database and auth)
+- **n8n Cloud Account** (optional, for AI processing)
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/Srinidhi94/vaultwise-dash.git
+cd vaultwise-dash
+
+# Install dependencies
+npm install
+
+# Configure environment variables
+cp .env.example .env.local
+# Edit .env.local with your Supabase credentials
+
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+**Detailed setup instructions**: See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## 📚 Documentation
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Essential Guides
+- **[Development Setup](docs/DEVELOPMENT.md)** - Complete setup guide for local development
+- **[Contributing](docs/CONTRIBUTING.md)** - Development guidelines and standards
+- **[Architecture](docs/ARCHITECTURE.md)** - Technical architecture and design decisions
 
-## What technologies are used for this project?
+### Additional Resources
+- **[Archived Documentation](docs/archive/)** - Historical planning and implementation docs
+- **[Original Prompt](finance-app-lovable-prompt.md)** - Initial project requirements from Lovable.dev
 
-This project is built with:
+---
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🔗 Project Links
 
-## How can I deploy this project?
+- **Repository**: https://github.com/Srinidhi94/vaultwise-dash
+- **Supabase Project**: huxhlktqxdkafbjtbwyr.supabase.co
+- **n8n Workflow**: VaultWise Statement Processor - Optimized (28 nodes)
 
-Simply open [Lovable](https://lovable.dev/projects/a8c19dec-01cc-4656-bb30-813ebbd20616) and click on Share -> Publish.
+---
 
-## Can I connect a custom domain to my Lovable project?
+## 📝 License
 
-Yes, you can!
+This project is unlicensed and proprietary.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+---
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+**Built with ❤️ by Srinidhi Rao**

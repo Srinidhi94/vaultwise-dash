@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CreditCard, TrendingUp, Shield } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { debugSupabaseConfig, supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -25,10 +26,29 @@ const Auth = () => {
     if (user) {
       navigate('/');
     }
+    // Debug Supabase configuration on component mount
+    debugSupabaseConfig();
   }, [user, navigate]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const testDatabaseConnection = async () => {
+    try {
+      console.log('Testing database connection...');
+      const { data, error } = await supabase.from('user_profiles').select('count').limit(1);
+      if (error) {
+        console.error('Database connection error:', error);
+        setError('Database connection failed: ' + error.message);
+      } else {
+        console.log('Database connection successful:', data);
+        setSuccess('Database connection successful!');
+      }
+    } catch (err) {
+      console.error('Unexpected database error:', err);
+      setError('Unexpected database error');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,6 +59,7 @@ const Auth = () => {
     if (activeTab === 'login') {
       const { error } = await signIn(formData.email, formData.password);
       if (error) {
+        console.error('Login error:', error);
         setError(error.message || 'Failed to sign in');
       }
     } else {
@@ -46,11 +67,14 @@ const Auth = () => {
         setError('Passwords do not match');
         return;
       }
+      console.log('Attempting signup with:', formData.email);
       const { error } = await signUp(formData.email, formData.password);
       if (error) {
+        console.error('Signup error:', error);
         setError(error.message || 'Failed to sign up');
       } else {
-        setSuccess('Account created successfully!');
+        setSuccess('Account created successfully! Please check your email to confirm your account.');
+        console.log('Signup successful for:', formData.email);
       }
     }
   };
@@ -153,6 +177,18 @@ const Auth = () => {
         <p className="text-center text-white/70 text-sm">
           Your financial data is encrypted and secure
         </p>
+        
+        {/* Temporary debug button */}
+        <div className="text-center">
+          <Button 
+            onClick={testDatabaseConnection}
+            variant="outline" 
+            size="sm"
+            className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+          >
+            Test Database Connection
+          </Button>
+        </div>
       </div>
     </div>
   );
