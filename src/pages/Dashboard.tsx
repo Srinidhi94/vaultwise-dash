@@ -15,7 +15,7 @@ import { AccountActivity } from '@/components/dashboard/AccountActivity';
 import { TrendingUp, User, LogOut, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { calculateTotalCreditUtilization } from '@/utils/creditCardUtils';
+import { calculateTotalCreditUtilizationForRange } from '@/utils/creditCardUtils';
 import { toast } from 'sonner';
 
 const Dashboard = () => {
@@ -81,7 +81,7 @@ const Dashboard = () => {
       .filter(t => t.transaction_type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
     
-    const creditUtil = calculateTotalCreditUtilization(creditCards, filteredTransactions, dateRange.start);
+    const creditUtil = calculateTotalCreditUtilizationForRange(creditCards, filteredTransactions, dateRange.start, dateRange.end);
     
     // Category breakdowns
     const expenseByCategory = filteredTransactions
@@ -237,6 +237,8 @@ const Dashboard = () => {
               type: "credit" as const
             }))}
             currencySymbol={currencySymbol}
+            startDate={dateRange.start}
+            endDate={dateRange.end}
           />
         </div>
 

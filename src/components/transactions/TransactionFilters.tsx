@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTransactionsStore } from "@/stores/useTransactionsStore";
 import { useAccountsStore } from "@/stores/useAccountsStore";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,15 +9,26 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Filter, ChevronDown, X } from "lucide-react";
-import { startOfMonth, endOfMonth, subDays, startOfDay, endOfDay } from "date-fns";
+import { startOfMonth, endOfMonth, subMonths, startOfYear } from "date-fns";
 
-type DateRangePreset = "all" | "today" | "last7" | "last30" | "thisMonth" | "lastMonth" | "custom";
+type DateRangePreset = "all" | "thisMonth" | "lastMonth" | "last3Months" | "last6Months" | "thisYear" | "custom";
 
 export const TransactionFilters = () => {
   const { filters, setFilters, categories } = useTransactionsStore();
   const { savingsAccounts, creditCards } = useAccountsStore();
   const [isOpen, setIsOpen] = useState(false); // Collapsed by default
-  const [datePreset, setDatePreset] = useState<DateRangePreset>("all");
+  const [datePreset, setDatePreset] = useState<DateRangePreset>("thisMonth");
+
+  // Initialize with current month on mount
+  useEffect(() => {
+    const today = new Date();
+    setFilters({
+      dateRange: {
+        start: startOfMonth(today),
+        end: endOfMonth(today),
+      },
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Count active filters
   const activeFilterCount = [
@@ -36,30 +47,6 @@ export const TransactionFilters = () => {
       case "all":
         setFilters({ dateRange: { start: null, end: null } });
         break;
-      case "today":
-        setFilters({
-          dateRange: {
-            start: startOfDay(today),
-            end: endOfDay(today),
-          },
-        });
-        break;
-      case "last7":
-        setFilters({
-          dateRange: {
-            start: startOfDay(subDays(today, 7)),
-            end: endOfDay(today),
-          },
-        });
-        break;
-      case "last30":
-        setFilters({
-          dateRange: {
-            start: startOfDay(subDays(today, 30)),
-            end: endOfDay(today),
-          },
-        });
-        break;
       case "thisMonth":
         setFilters({
           dateRange: {
@@ -68,16 +55,38 @@ export const TransactionFilters = () => {
           },
         });
         break;
-      case "lastMonth": {
-        const lastMonth = subDays(startOfMonth(today), 1);
+      case "lastMonth":
         setFilters({
           dateRange: {
-            start: startOfMonth(lastMonth),
-            end: endOfMonth(lastMonth),
+            start: startOfMonth(subMonths(today, 1)),
+            end: endOfMonth(subMonths(today, 1)),
           },
         });
         break;
-      }
+      case "last3Months":
+        setFilters({
+          dateRange: {
+            start: startOfMonth(subMonths(today, 2)),
+            end: endOfMonth(today),
+          },
+        });
+        break;
+      case "last6Months":
+        setFilters({
+          dateRange: {
+            start: startOfMonth(subMonths(today, 5)),
+            end: endOfMonth(today),
+          },
+        });
+        break;
+      case "thisYear":
+        setFilters({
+          dateRange: {
+            start: startOfYear(today),
+            end: endOfMonth(today),
+          },
+        });
+        break;
       case "custom":
         // Let user set custom dates
         break;
@@ -95,14 +104,18 @@ export const TransactionFilters = () => {
   };
 
   const clearAllFilters = () => {
+    const today = new Date();
     setFilters({
-      dateRange: { start: null, end: null },
+      dateRange: {
+        start: startOfMonth(today),
+        end: endOfMonth(today),
+      },
       accountType: "all",
       accountId: undefined,
       categoryId: undefined,
       transactionType: "all",
     });
-    setDatePreset("all");
+    setDatePreset("thisMonth");
   };
 
   return (
@@ -154,38 +167,6 @@ export const TransactionFilters = () => {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <Button
                   size="sm"
-                  variant={datePreset === "all" ? "default" : "outline"}
-                  onClick={() => handleDatePresetChange("all")}
-                  className="text-xs"
-                >
-                  All Time
-                </Button>
-                <Button
-                  size="sm"
-                  variant={datePreset === "today" ? "default" : "outline"}
-                  onClick={() => handleDatePresetChange("today")}
-                  className="text-xs"
-                >
-                  Today
-                </Button>
-                <Button
-                  size="sm"
-                  variant={datePreset === "last7" ? "default" : "outline"}
-                  onClick={() => handleDatePresetChange("last7")}
-                  className="text-xs"
-                >
-                  Last 7 Days
-                </Button>
-                <Button
-                  size="sm"
-                  variant={datePreset === "last30" ? "default" : "outline"}
-                  onClick={() => handleDatePresetChange("last30")}
-                  className="text-xs"
-                >
-                  Last 30 Days
-                </Button>
-                <Button
-                  size="sm"
                   variant={datePreset === "thisMonth" ? "default" : "outline"}
                   onClick={() => handleDatePresetChange("thisMonth")}
                   className="text-xs"
@@ -199,6 +180,38 @@ export const TransactionFilters = () => {
                   className="text-xs"
                 >
                   Last Month
+                </Button>
+                <Button
+                  size="sm"
+                  variant={datePreset === "last3Months" ? "default" : "outline"}
+                  onClick={() => handleDatePresetChange("last3Months")}
+                  className="text-xs"
+                >
+                  Last 3 Months
+                </Button>
+                <Button
+                  size="sm"
+                  variant={datePreset === "last6Months" ? "default" : "outline"}
+                  onClick={() => handleDatePresetChange("last6Months")}
+                  className="text-xs"
+                >
+                  Last 6 Months
+                </Button>
+                <Button
+                  size="sm"
+                  variant={datePreset === "thisYear" ? "default" : "outline"}
+                  onClick={() => handleDatePresetChange("thisYear")}
+                  className="text-xs"
+                >
+                  This Year
+                </Button>
+                <Button
+                  size="sm"
+                  variant={datePreset === "all" ? "default" : "outline"}
+                  onClick={() => handleDatePresetChange("all")}
+                  className="text-xs"
+                >
+                  All Time
                 </Button>
               </div>
 

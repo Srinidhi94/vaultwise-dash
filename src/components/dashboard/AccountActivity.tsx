@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Wallet, CreditCard } from "lucide-react";
-import { calculateCardUtilization } from "@/utils/creditCardUtils";
+import { calculateCardUtilization, calculateCardUtilizationForRange } from "@/utils/creditCardUtils";
 
 interface Transaction {
   account_id: string;
@@ -33,6 +33,8 @@ interface AccountActivityProps {
   savingsAccounts: SavingsAccount[];
   creditCards: CreditCard[];
   currencySymbol: string;
+  startDate?: Date;
+  endDate?: Date;
 }
 
 export const AccountActivity = ({
@@ -40,6 +42,8 @@ export const AccountActivity = ({
   savingsAccounts,
   creditCards,
   currencySymbol,
+  startDate,
+  endDate,
 }: AccountActivityProps) => {
   const formatCurrency = (amount: number) => {
     return `${currencySymbol}${amount.toFixed(0)}`;
@@ -67,12 +71,20 @@ export const AccountActivity = ({
           displayType: "balance" as const,
         };
       } else {
-        // Credit card - calculate utilization using proper method
-        const utilization = calculateCardUtilization(
-          account.id,
-          account.credit_limit,
-          transactions
-        );
+        // Credit card - calculate utilization using date range if provided
+        const utilization = startDate && endDate
+          ? calculateCardUtilizationForRange(
+              account.id,
+              account.credit_limit,
+              transactions,
+              startDate,
+              endDate
+            )
+          : calculateCardUtilization(
+              account.id,
+              account.credit_limit,
+              transactions
+            );
         return {
           ...account,
           hasActivity,
