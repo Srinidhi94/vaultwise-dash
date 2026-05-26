@@ -2,24 +2,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Edit, Trash2, TrendingUp, TrendingDown, Calendar, CreditCard, Wallet, Tag, FileText } from "lucide-react";
+import { Edit, Trash2, TrendingUp, TrendingDown, Calendar, CreditCard, Wallet, Tag, FileText, Cloud } from "lucide-react";
 import { format } from "date-fns";
-import { Category } from "@/stores/useTransactionsStore";
+import { Category, Transaction } from "@/stores/useTransactionsStore";
 
 interface TransactionDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  transaction: {
-    id: string;
-    description: string;
-    amount: number;
-    transaction_date: string;
-    transaction_type: string;
-    account_type: string;
-    notes?: string | null;
-    category_id?: string | null;
-    account_id: string;
-  } | null;
+  transaction: Transaction | null;
   category?: Category | null;
   accountName: string;
   currencySymbol: string;
@@ -60,7 +50,7 @@ export const TransactionDetailDialog = ({
             ) : (
               <TrendingDown className="h-5 w-5 text-destructive" />
             )}
-            {transaction.description}
+            {transaction.user_description || transaction.description}
           </DialogTitle>
           <DialogDescription>
             Transaction details and information
@@ -68,6 +58,21 @@ export const TransactionDetailDialog = ({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* AA Source Badge */}
+          {transaction.source === 'aa' && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 px-2.5 py-1.5 rounded-md w-fit">
+              <Cloud className="h-3 w-3" />
+              <span>Synced from bank</span>
+            </div>
+          )}
+
+          {/* Original Narration for AA txns with custom display name */}
+          {transaction.source === 'aa' && transaction.user_description && (
+            <div className="text-xs text-muted-foreground">
+              <span className="font-medium">Original narration:</span> {transaction.description}
+            </div>
+          )}
+
           {/* Amount */}
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-muted-foreground">Amount</span>
@@ -157,17 +162,19 @@ export const TransactionDetailDialog = ({
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
-          <Button
-            variant="destructive"
-            onClick={() => {
-              onOpenChange(false);
-              onDelete();
-            }}
-            className="flex-1"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete
-          </Button>
+          {transaction.source !== 'aa' && (
+            <Button
+              variant="destructive"
+              onClick={() => {
+                onOpenChange(false);
+                onDelete();
+              }}
+              className="flex-1"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

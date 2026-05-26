@@ -18,7 +18,7 @@ export const AddTransactionDialog = ({
   onOpenChange,
   onSuccess,
 }: AddTransactionDialogProps) => {
-  const { addTransaction, categories, getCategoriesByType } = useTransactionsStore();
+  const { addTransaction, categories, getCategoriesByType, fetchTransactions } = useTransactionsStore();
   const { savingsAccounts, creditCards, fetchAccounts } = useAccountsStore();
   
   const [formData, setFormData] = useState({
@@ -31,10 +31,14 @@ export const AddTransactionDialog = ({
     transaction_date: new Date().toISOString().split("T")[0],
   });
 
+  // Only show manual (non-AA) accounts
+  const manualSavings = savingsAccounts.filter(a => a.source !== 'aa' && a.is_active);
+  const manualCredit = creditCards.filter(c => c.source !== 'aa' && c.is_active);
+
   // Auto-populate Account Type if only one type has accounts
   useEffect(() => {
-    const hasSavings = savingsAccounts.length > 0;
-    const hasCredit = creditCards.length > 0;
+    const hasSavings = manualSavings.length > 0;
+    const hasCredit = manualCredit.length > 0;
     
     // If only one type exists, auto-select it
     if (hasSavings && !hasCredit && formData.account_type !== "savings") {
@@ -42,11 +46,11 @@ export const AddTransactionDialog = ({
     } else if (!hasSavings && hasCredit && formData.account_type !== "credit") {
       setFormData(prev => ({ ...prev, account_type: "credit" }));
     }
-  }, [savingsAccounts.length, creditCards.length]);
+  }, [manualSavings.length, manualCredit.length]);
 
   // Auto-populate Account if only one account of selected type exists
   useEffect(() => {
-    const accounts = formData.account_type === "savings" ? savingsAccounts : creditCards;
+    const accounts = formData.account_type === "savings" ? manualSavings : manualCredit;
     
     // If only 1 account exists and not already selected, auto-select it
     if (accounts.length === 1 && !formData.account_id) {
@@ -80,6 +84,7 @@ export const AddTransactionDialog = ({
         transaction_date: formData.transaction_date,
         account_id: formData.account_id,
         account_type: formData.account_type,
+        source: 'manual',
       });
       
       // Reset form
@@ -102,7 +107,6 @@ export const AddTransactionDialog = ({
       
       onSuccess?.();
     } catch (error: unknown) {
-      console.error("Add transaction failed:", error);
       const message = error instanceof Error ? error.message : String(error);
       toast.error(message ? `Failed to add transaction: ${message}` : "Failed to add transaction");
     }
@@ -167,7 +171,7 @@ export const AddTransactionDialog = ({
               <SelectContent>
                 {formData.account_type === "savings" && (
                   <>
-                    {savingsAccounts.filter(a => a.is_active).map((a) => (
+                    {manualSavings.map((a) => (
                       <SelectItem key={a.id} value={a.id}>
                         {a.name}
                       </SelectItem>
@@ -176,7 +180,7 @@ export const AddTransactionDialog = ({
                 )}
                 {formData.account_type === "credit" && (
                   <>
-                    {creditCards.filter(c => c.is_active).map((c) => (
+                    {manualCredit.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
                       </SelectItem>

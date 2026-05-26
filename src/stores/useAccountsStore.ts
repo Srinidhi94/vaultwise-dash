@@ -13,6 +13,9 @@ export interface SavingsAccount {
   opening_balance: number;
   current_balance: number; // Calculated dynamically
   is_active: boolean;
+  source: 'manual' | 'aa';
+  aa_last_synced_at?: string | null;
+  aa_link_ref_number?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -25,6 +28,9 @@ export interface CreditCard {
   credit_limit: number;
   current_balance: number; // Calculated dynamically
   is_active: boolean;
+  source: 'manual' | 'aa';
+  aa_last_synced_at?: string | null;
+  aa_link_ref_number?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -76,14 +82,14 @@ export const useAccountsStore = create<AccountsState>()(
           if (creditResponse.error) throw creditResponse.error;
 
           set({
-            savingsAccounts: savingsResponse.data || [],
-            creditCards: creditResponse.data || [],
+            savingsAccounts: (savingsResponse.data || []) as SavingsAccount[],
+            creditCards: (creditResponse.data || []) as CreditCard[],
           });
           
           // Recalculate balances after fetching
           get().recalculateBalances();
         } catch (error) {
-          console.error('Error fetching accounts:', error);
+          // Silently handle fetch errors; UI remains in last-known state
         } finally {
           set({ loading: false });
         }
@@ -102,7 +108,7 @@ export const useAccountsStore = create<AccountsState>()(
         if (error) throw error;
 
         set((state) => ({
-          savingsAccounts: [...state.savingsAccounts, data],
+          savingsAccounts: [...state.savingsAccounts, data as SavingsAccount],
         }));
       },
 
@@ -119,7 +125,7 @@ export const useAccountsStore = create<AccountsState>()(
         if (error) throw error;
 
         set((state) => ({
-          creditCards: [...state.creditCards, data],
+          creditCards: [...state.creditCards, data as CreditCard],
         }));
       },
 

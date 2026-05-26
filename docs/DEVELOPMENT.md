@@ -1,6 +1,34 @@
-# Development Setup Guide
+# VaultWise Development Guide
+
+**Version**: 2.0  
+**Last Updated**: January 6, 2025
 
 Complete guide to setting up VaultWise for local development.
+
+---
+
+## ⚡ Quick Start (5 Minutes)
+
+**For experienced developers who want to get running fast:**
+
+```bash
+# 1. Clone + Install
+git clone https://github.com/Srinidhi94/vaultwise-dash.git
+cd vaultwise-dash
+npm install
+
+# 2. Configure environment
+cp .env.example .env.local
+# Edit .env.local with your Supabase credentials
+
+# 3. Start development server
+npm run dev
+# Opens at http://localhost:8080
+
+# 4. Sign up and start using!
+```
+
+**That's it!** The database is already set up in the Supabase project. Skip to [Common Tasks](#-common-development-tasks) for day-to-day development workflows.
 
 ---
 
@@ -15,7 +43,6 @@ Complete guide to setting up VaultWise for local development.
 ### Required Accounts
 
 - **Supabase Account**: [supabase.com](https://supabase.com)
-- **n8n Cloud Account** (for AI processing): [n8n.io](https://n8n.io)
 
 ### Optional Tools
 
@@ -57,10 +84,7 @@ Edit `.env.local` with your credentials:
 ```env
 # Supabase Configuration
 VITE_SUPABASE_URL=https://huxhlktqxdkafbjtbwyr.supabase.co
-VITE_SUPABASE_ANON_KEY=your_anon_key_here
-
-# n8n Webhook (for AI statement processing)
-VITE_N8N_WEBHOOK_URL=https://your-n8n-instance.com/webhook/vaultwise-process
+VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key_here
 ```
 
 ### 4. Start Development Server
@@ -166,52 +190,6 @@ INSERT INTO categories (name, type, is_default) VALUES
 
 ---
 
-## 🤖 n8n Setup (AI Processing)
-
-### Option A: Use Existing Workflow
-
-Request access to the shared n8n workspace:
-- **Instance**: venom94.app.n8n.cloud
-- **Workflow**: "VaultWise Statement Processor - Optimized"
-- **Webhook URL**: `https://venom94.app.n8n.cloud/webhook/vaultwise-process`
-
-### Option B: Create Your Own n8n Instance
-
-#### Step 1: Create n8n Cloud Account
-
-1. Go to [n8n.io/cloud](https://n8n.io/cloud)
-2. Sign up for free trial or paid plan
-3. Create a new workspace
-
-#### Step 2: Import Workflow
-
-1. Contact for workflow export JSON
-2. In n8n, go to **Workflows** → **Import from File**
-3. Upload the JSON file
-
-#### Step 3: Configure Credentials
-
-You'll need to set up:
-
-**Supabase API**:
-- URL: Your Supabase project URL
-- Key: Your `service_role` key (from Supabase Settings → API)
-
-**OpenAI API**:
-- API Key: Get from [platform.openai.com](https://platform.openai.com/api-keys)
-- Model: gpt-4.1-mini
-
-**Anthropic API** (optional):
-- API Key: Get from [console.anthropic.com](https://console.anthropic.com/)
-- Model: claude-sonnet-4
-
-#### Step 4: Activate Workflow
-
-1. Open the workflow
-2. Click **Active** toggle in top right
-3. Copy the webhook URL
-4. Update `VITE_N8N_WEBHOOK_URL` in `.env.local`
-
 ---
 
 ## 🧪 Testing Your Setup
@@ -257,15 +235,13 @@ After signing in:
 5. Click **Save**
 6. Transaction should appear in list
 
-### Test 6: AI Processing (if n8n configured)
+### Test 6: Account Aggregator (AA) Sync
 
 1. Go to **Accounts** page
-2. Click **Upload Statement**
-3. Select a test PDF/CSV bank statement
-4. Click **Process**
-5. Wait 30-120 seconds
-6. Should see success message
-7. Transactions should appear in dashboard
+2. Click **Connect bank account**
+3. Grant consent via AA provider redirect
+4. Wait for consent approval
+5. Transactions should sync automatically
 
 ---
 
@@ -384,15 +360,6 @@ WHERE schemaname = 'public';
 
 **Solution**: Insert default categories (see Database Setup Step 5)
 
-### Issue: n8n workflow fails
-
-**Check**:
-1. Workflow is **Active**
-2. All credentials are configured
-3. Supabase credentials use `service_role` key
-4. OpenAI API key is valid
-5. Check execution logs in n8n
-
 ---
 
 ## 📁 Project Structure
@@ -433,13 +400,283 @@ vaultwise-dash/
 
 - **anon key**: Safe for frontend (has RLS restrictions)
 - **service_role key**: Backend only (bypasses RLS)
-- Store service_role key in n8n credentials only
+- Store service_role key in Edge Function env only
 
 ### Database
 
 - All tables have RLS enabled
 - Users can only access their own data
 - Never use `service_role` key in frontend
+
+---
+
+## 🛠️ Common Development Tasks
+
+### Task 1: Adding a New Page
+
+```bash
+# 1. Create page component
+# File: src/pages/MyNewPage.tsx
+
+import { useEffect } from 'react';
+import { useAuthStore } from '@/stores/useAuthStore';
+
+export function MyNewPage() {
+  const { user } = useAuthStore();
+
+  useEffect(() => {
+    // Fetch data on mount
+  }, []);
+
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold">My New Page</h1>
+      {/* Page content */}
+    </div>
+  );
+}
+
+# 2. Add route
+# File: src/App.tsx
+
+import { MyNewPage } from '@/pages/MyNewPage';
+
+<Route path="/my-new-page" element={<MyNewPage />} />
+
+# 3. Add navigation link (if needed)
+# File: src/components/layout/BottomNav.tsx
+```
+
+### Task 2: Creating a New Component
+
+```bash
+# 1. Create component file
+# File: src/components/dashboard/MyWidget.tsx
+
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+
+interface MyWidgetProps {
+  data: DataType;
+  onAction: () => void;
+}
+
+export function MyWidget({ data, onAction }: MyWidgetProps) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>My Widget</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {/* Widget content */}
+      </CardContent>
+    </Card>
+  );
+}
+
+# 2. Use in parent component
+# File: src/pages/Dashboard.tsx
+
+import { MyWidget } from '@/components/dashboard/MyWidget';
+
+<MyWidget data={data} onAction={handleAction} />
+```
+
+### Task 3: Adding a New Zustand Store
+
+```bash
+# 1. Create store file
+# File: src/stores/useMyStore.ts
+
+import { create } from 'zustand';
+import { devtools } from 'zustand/middleware';
+import { supabase } from '@/integrations/supabase/client';
+
+interface Item {
+  id: string;
+  name: string;
+}
+
+interface MyStoreState {
+  items: Item[];
+  loading: boolean;
+  fetchItems: () => Promise<void>;
+  addItem: (item: Omit<Item, 'id'>) => Promise<void>;
+}
+
+export const useMyStore = create<MyStoreState>()(  
+  devtools(
+    (set) => ({
+      items: [],
+      loading: false,
+
+      fetchItems: async () => {
+        set({ loading: true });
+        try {
+          const { data, error } = await supabase
+            .from('my_table')
+            .select('*');
+          if (error) throw error;
+          set({ items: data || [], loading: false });
+        } catch (error) {
+          console.error('Fetch error:', error);
+          set({ loading: false });
+        }
+      },
+
+      addItem: async (item) => {
+        const { data, error } = await supabase
+          .from('my_table')
+          .insert([item])
+          .select()
+          .single();
+        if (error) throw error;
+        set((state) => ({ items: [...state.items, data] }));
+      }
+    }),
+    { name: 'my-store' }
+  )
+);
+
+# 2. Use in component
+import { useMyStore } from '@/stores/useMyStore';
+
+function MyComponent() {
+  const { items, loading, fetchItems } = useMyStore();
+  
+  useEffect(() => {
+    fetchItems();
+  }, []);
+  
+  if (loading) return <div>Loading...</div>;
+  return <div>{items.map(...)}</div>;
+}
+```
+
+### Task 4: Adding a Database Migration
+
+```bash
+# 1. Create migration file
+# File: supabase/migrations/YYYYMMDDHHMMSS_description.sql
+
+-- Add new column
+ALTER TABLE transactions 
+ADD COLUMN receipt_url TEXT;
+
+-- Create new table
+CREATE TABLE budgets (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  category_id UUID REFERENCES categories(id),
+  amount DECIMAL(12,2) NOT NULL,
+  period VARCHAR(20) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
+
+-- Create policy
+CREATE POLICY "Users can view own budgets"
+ON budgets FOR SELECT
+USING (auth.uid() = user_id);
+
+# 2. Apply migration
+# Option A: Supabase Dashboard SQL Editor
+# - Copy migration SQL
+# - Paste in SQL Editor
+# - Click "Run"
+
+# Option B: Supabase CLI
+supabase db push
+```
+
+### Task 5: Debugging Tips
+
+**Using Browser DevTools**:
+```bash
+# 1. Open DevTools (F12 or Cmd+Option+I)
+
+# 2. Check Console for errors
+console.log('Debug value:', value);
+console.error('Error:', error);
+
+# 3. Use Network tab
+# - Check API calls
+# - Verify request/response
+# - Check status codes
+
+# 4. Use Redux DevTools for Zustand
+# - See all store actions
+# - Time-travel debugging
+# - State inspection
+```
+
+**Using VS Code Debugger**:
+```json
+// .vscode/launch.json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Launch Chrome",
+      "url": "http://localhost:8080",
+      "webRoot": "${workspaceFolder}/src"
+    }
+  ]
+}
+```
+
+**Common Debugging Scenarios**:
+```typescript
+// Check if data is loading
+console.log('Loading:', loading, 'Data:', data);
+
+// Check store state
+const state = useTransactionsStore.getState();
+console.log('Store state:', state);
+
+// Check Supabase response
+const { data, error } = await supabase.from('table').select('*');
+console.log('Supabase response:', { data, error });
+
+// Check RLS policies
+console.log('User ID:', auth.uid());
+```
+
+### Task 6: Performance Optimization
+
+**Optimize Component Rendering**:
+```typescript
+import { memo, useMemo } from 'react';
+
+// Memoize expensive computations
+const expensiveValue = useMemo(() => {
+  return computeExpensiveValue(data);
+}, [data]);
+
+// Memoize component to prevent re-renders
+export const ExpensiveComponent = memo(function ExpensiveComponent(props) {
+  return <div>{props.data}</div>;
+});
+```
+
+**Optimize Database Queries**:
+```typescript
+// Bad: Multiple queries
+const accounts = await supabase.from('accounts').select('*');
+const transactions = await supabase.from('transactions').select('*');
+
+// Good: Single query with join (if needed)
+const { data } = await supabase
+  .from('accounts')
+  .select('*, transactions(*)');
+
+// Good: Fetch once, cache in Zustand
+const { transactions } = useTransactionsStore();
+// Don't re-fetch on every render
+```
 
 ---
 
@@ -451,7 +688,6 @@ vaultwise-dash/
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
 - [Vite Guide](https://vitejs.dev/guide/)
 - [Supabase Docs](https://supabase.com/docs)
-- [n8n Documentation](https://docs.n8n.io)
 - [Tailwind CSS](https://tailwindcss.com/docs)
 - [shadcn/ui](https://ui.shadcn.com)
 
@@ -479,11 +715,6 @@ Before starting development, verify:
 - [ ] Can create transaction
 - [ ] No console errors
 
-Optional (for AI processing):
-- [ ] n8n workflow access or created
-- [ ] Webhook URL configured
-- [ ] Can upload and process statement
-
 ---
 
 ## 🚀 Ready to Develop!
@@ -501,4 +732,18 @@ Your development environment is now set up. Check the [Contributing Guide](./CON
 
 ---
 
-**Last Updated**: October 4, 2025
+---
+
+## 📚 Related Documentation
+
+- **[Product Requirements](./PRD.md)** - Feature roadmap and business goals
+- **[Ideal Customer Profile](./ICP.md)** - Target user personas  
+- **[Architecture](./ARCHITECTURE.md)** - Technical architecture
+- **[Contributing](./CONTRIBUTING.md)** - Code standards and workflow
+- **[README](../README.md)** - Project overview
+
+---
+
+**Version**: 2.0  
+**Last Updated**: January 6, 2025  
+**Status**: Production-Ready MVP

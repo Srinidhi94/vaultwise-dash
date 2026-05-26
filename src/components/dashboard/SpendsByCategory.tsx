@@ -1,6 +1,10 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { TrendingUp } from "lucide-react";
+import { CategoryBreakdownDialog } from "./CategoryBreakdownDialog";
+import { usePreferencesStore } from "@/stores/usePreferencesStore";
+import { formatAmount, formatFullAmount } from "@/utils/numberFormat";
 
 interface CategoryData {
   name: string;
@@ -21,16 +25,22 @@ const COLORS = [
 ];
 
 export const SpendsByCategory = ({ data, currencySymbol }: SpendsByCategoryProps) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { numberFormat } = usePreferencesStore();
   const totalExpense = data.reduce((sum, item) => sum + item.amount, 0);
   const topCategories = data.slice(0, 5);
 
   return (
-    <Card className="financial-card">
+    <>
+      <Card 
+        className="financial-card cursor-pointer hover:shadow-lg transition-shadow"
+        onClick={() => setIsDialogOpen(true)}
+      >
       <CardHeader className="pb-2 sm:pb-3">
         <CardTitle className="text-sm sm:text-base flex items-center gap-2">
           <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-destructive rotate-180" />
-          <span className="hidden sm:inline">Spends by Category</span>
-          <span className="sm:hidden">Spends</span>
+          <span className="hidden sm:inline">Expenses by Category</span>
+          <span className="sm:hidden">Expenses</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-2 sm:p-6 pt-0">
@@ -43,8 +53,8 @@ export const SpendsByCategory = ({ data, currencySymbol }: SpendsByCategoryProps
                     data={topCategories}
                     cx="50%"
                     cy="50%"
-                    innerRadius="60%"
-                    outerRadius="90%"
+                    innerRadius="65%"
+                    outerRadius="95%"
                     paddingAngle={2}
                     dataKey="amount"
                   >
@@ -54,11 +64,12 @@ export const SpendsByCategory = ({ data, currencySymbol }: SpendsByCategoryProps
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <p className="text-xs sm:text-sm font-bold text-destructive">
-                  {currencySymbol}{totalExpense.toFixed(0)}
+              <div className="absolute inset-0 flex flex-col items-center justify-center px-1">
+                <p className="text-[10px] sm:text-sm font-bold text-destructive">
+                  <span className="sm:hidden">{currencySymbol}{formatAmount(totalExpense, numberFormat, 2)}</span>
+                  <span className="hidden sm:inline">{currencySymbol}{formatFullAmount(totalExpense, numberFormat, 0)}</span>
                 </p>
-                <p className="text-xs text-muted-foreground hidden sm:block">Total</p>
+                <p className="text-[8px] sm:text-xs text-muted-foreground">Total</p>
               </div>
             </div>
             
@@ -73,7 +84,7 @@ export const SpendsByCategory = ({ data, currencySymbol }: SpendsByCategoryProps
                     />
                     <span className="truncate flex-1">{item.name}</span>
                     <span className="font-semibold text-destructive">
-                      {currencySymbol}{item.amount.toFixed(0)}
+                      {currencySymbol}{formatFullAmount(item.amount, numberFormat, 0)}
                     </span>
                   </div>
                 ))}
@@ -83,6 +94,9 @@ export const SpendsByCategory = ({ data, currencySymbol }: SpendsByCategoryProps
                   +{topCategories.length - 3} more
                 </p>
               )}
+              <p className="text-xs text-primary text-center mt-2 font-medium">
+                Tap to view all
+              </p>
             </div>
           </div>
         ) : (
@@ -94,5 +108,14 @@ export const SpendsByCategory = ({ data, currencySymbol }: SpendsByCategoryProps
         )}
       </CardContent>
     </Card>
+
+    <CategoryBreakdownDialog
+      open={isDialogOpen}
+      onOpenChange={setIsDialogOpen}
+      data={data}
+      currencySymbol={currencySymbol}
+      type="expense"
+    />
+  </>
   );
 };

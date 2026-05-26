@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 
@@ -9,11 +9,14 @@ export interface Transaction {
   transaction_date: string;
   amount: number;
   description: string;
+  user_description?: string;
   transaction_type: 'income' | 'expense';
   account_type: 'savings' | 'credit';
   account_id: string;
   category_id?: string;
   notes?: string;
+  source: 'manual' | 'aa';
+  source_ref?: string;
   created_at: string;
   updated_at: string;
 }
@@ -31,12 +34,15 @@ interface TransactionsState {
   transactions: Transaction[];
   categories: Category[];
   loading: boolean;
+  sortBy: 'none' | 'account' | 'type';
+  filtersInitialized: boolean;
   filters: {
     dateRange: { start: Date | null; end: Date | null };
     accountType: 'all' | 'savings' | 'credit';
     accountId?: string;
     categoryId?: string;
     transactionType: 'all' | 'income' | 'expense';
+    searchKeyword?: string;
   };
   
   // Actions
@@ -51,6 +57,7 @@ interface TransactionsState {
   updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   setFilters: (filters: Partial<TransactionsState['filters']>) => void;
+  setSortBy: (sortBy: 'none' | 'account' | 'type') => void;
   
   // Computed values
   getFilteredTransactions: () => Transaction[];
@@ -62,10 +69,13 @@ interface TransactionsState {
 
 export const useTransactionsStore = create<TransactionsState>()(
   devtools(
-    (set, get) => ({
+    persist(
+      (set, get) => ({
       transactions: [],
       categories: [],
       loading: false,
+      sortBy: 'none',
+      filtersInitialized: false,
       filters: {
         dateRange: { start: null, end: null },
         accountType: 'all',
@@ -79,12 +89,12 @@ export const useTransactionsStore = create<TransactionsState>()(
             .from('transactions')
             .select('*')
             .order('transaction_date', { ascending: false })
-            .limit(100);
+            .limit(10000); // Increased limit to support large transaction histories
 
           if (error) throw error;
           set({ transactions: (data || []) as Transaction[] });
         } catch (error) {
-          console.error('Error fetching transactions:', error);
+          // Silently handle fetch errors; UI remains in last-known state
         } finally {
           set({ loading: false });
         }
@@ -98,16 +108,9 @@ export const useTransactionsStore = create<TransactionsState>()(
             .order('name');
 
           if (error) throw error;
-          set({ categories: (data as any[])?.map(item => ({
-            id: item.id,
-            user_id: item.user_id,
-            name: item.name,
-            type: item.type,
-            is_default: item.is_default,
-            created_at: item.created_at
-          })) || [] });
+          set({ categories: (data || []) as Category[] });
         } catch (error) {
-          console.error('Error fetching categories:', error);
+          // Silently handle fetch errors
         }
       },
 
@@ -117,130 +120,103 @@ export const useTransactionsStore = create<TransactionsState>()(
       },
 
       addCategory: async (name: string, type: 'income' | 'expense') => {
-        try {
-          const { data: user } = await supabase.auth.getUser();
-          if (!user.user) throw new Error('Not authenticated');
+        const { data: user } = await supabase.auth.getUser();
+        if (!user.user) throw new Error('Not authenticated');
 
-          // Check for duplicate names within the same type
-          const { categories } = get();
-          const duplicate = categories.find(cat => 
-            cat.name.toLowerCase() === name.toLowerCase() && cat.type === type
-          );
-          
-          if (duplicate) {
-            throw new Error(`A ${type} category with this name already exists`);
-          }
-
-          const { data, error } = await supabase
-            .from('categories')
-            .insert([{ 
-              user_id: user.user.id, 
-              name: name.trim(), 
-              type, 
-              is_default: false 
-            }])
-            .select()
-            .single();
-
-          if (error) throw error;
-
-          set((state) => ({
-            categories: [...state.categories, {
-              id: (data as any).id,
-              user_id: (data as any).user_id,
-              name: (data as any).name,
-              type: (data as any).type,
-              is_default: (data as any).is_default,
-              created_at: (data as any).created_at
-            } as Category],
-          }));
-        } catch (error) {
-          console.error('Error adding category:', error);
-          throw error;
+        // Check for duplicate names within the same type
+        const { categories } = get();
+        const duplicate = categories.find(cat => 
+          cat.name.toLowerCase() === name.toLowerCase() && cat.type === type
+        );
+        
+        if (duplicate) {
+          throw new Error(`A ${type} category with this name already exists`);
         }
+
+        const { data, error } = await supabase
+          .from('categories')
+          .insert([{ 
+            user_id: user.user.id, 
+            name: name.trim(), 
+            type, 
+            is_default: false 
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        set((state) => ({
+          categories: [...state.categories, data as unknown as Category],
+        }));
       },
 
       updateCategory: async (id: string, name: string) => {
-        try {
-          const { error } = await supabase
-            .from('categories')
-            .update({ name: name.trim() })
-            .eq('id', id)
-            .eq('is_default', false); // Only allow updating custom categories
+        const { error } = await supabase
+          .from('categories')
+          .update({ name: name.trim() })
+          .eq('id', id)
+          .eq('is_default', false); // Only allow updating custom categories
 
-          if (error) throw error;
+        if (error) throw error;
 
-          set((state) => ({
-            categories: state.categories.map((cat) =>
-              cat.id === id ? { ...cat, name: name.trim() } : cat
-            ),
-          }));
-        } catch (error) {
-          console.error('Error updating category:', error);
-          throw error;
-        }
+        set((state) => ({
+          categories: state.categories.map((cat) =>
+            cat.id === id ? { ...cat, name: name.trim() } : cat
+          ),
+        }));
       },
 
       deleteCategory: async (id: string) => {
-        try {
-          // Check if category is used in transactions
-          const { data: transactions, error: checkError } = await supabase
-            .from('transactions')
-            .select('id')
-            .eq('category_id', id)
-            .limit(1);
+        // Check if category is used in transactions
+        const { data: transactions, error: checkError } = await supabase
+          .from('transactions')
+          .select('id')
+          .eq('category_id', id)
+          .limit(1);
 
-          if (checkError) throw checkError;
+        if (checkError) throw checkError;
 
-          if (transactions && transactions.length > 0) {
-            // Update transactions to use "Others" category
-            const { categories } = get();
-            const othersCategory = categories.find(cat => 
-              cat.name === 'Others' && cat.is_default
-            );
+        if (transactions && transactions.length > 0) {
+          // Update transactions to use "Others" category
+          const { categories } = get();
+          const othersCategory = categories.find(cat => 
+            cat.name === 'Others' && cat.is_default
+          );
 
-            if (othersCategory) {
-              const { error: updateError } = await supabase
-                .from('transactions')
-                .update({ category_id: othersCategory.id })
-                .eq('category_id', id);
+          if (othersCategory) {
+            const { error: updateError } = await supabase
+              .from('transactions')
+              .update({ category_id: othersCategory.id })
+              .eq('category_id', id);
 
-              if (updateError) throw updateError;
-            }
+            if (updateError) throw updateError;
           }
-
-          const { error } = await supabase
-            .from('categories')
-            .delete()
-            .eq('id', id)
-            .eq('is_default', false); // Only allow deleting custom categories
-
-          if (error) throw error;
-
-          set((state) => ({
-            categories: state.categories.filter((cat) => cat.id !== id),
-          }));
-        } catch (error) {
-          console.error('Error deleting category:', error);
-          throw error;
         }
+
+        const { error } = await supabase
+          .from('categories')
+          .delete()
+          .eq('id', id)
+          .eq('is_default', false); // Only allow deleting custom categories
+
+        if (error) throw error;
+
+        set((state) => ({
+          categories: state.categories.filter((cat) => cat.id !== id),
+        }));
       },
 
       seedDefaultCategories: async () => {
-        try {
-          const { data: user } = await supabase.auth.getUser();
-          if (!user.user) throw new Error('Not authenticated');
+        const { data: user } = await supabase.auth.getUser();
+        if (!user.user) throw new Error('Not authenticated');
 
-          // Check if user already has categories
-          const { categories } = get();
-          if (categories.length > 0) return;
+        // Check if user already has categories
+        const { categories } = get();
+        if (categories.length > 0) return;
 
-          // Categories are already seeded in the database, just fetch them
-          await get().fetchCategories();
-        } catch (error) {
-          console.error('Error seeding default categories:', error);
-          throw error;
-        }
+        // Categories are already seeded in the database, just fetch them
+        await get().fetchCategories();
       },
 
       addTransaction: async (transaction) => {
@@ -307,6 +283,8 @@ export const useTransactionsStore = create<TransactionsState>()(
         filters: { ...state.filters, ...filters },
       })),
 
+      setSortBy: (sortBy) => set({ sortBy }),
+
       getFilteredTransactions: () => {
         const { transactions, filters } = get();
         return transactions.filter((transaction) => {
@@ -325,6 +303,21 @@ export const useTransactionsStore = create<TransactionsState>()(
           
           // Transaction type filter
           if (filters.transactionType !== 'all' && transaction.transaction_type !== filters.transactionType) return false;
+          
+          // Search keyword filter (applied last - searches in description, notes, and amount)
+          if (filters.searchKeyword && filters.searchKeyword.trim()) {
+            const keyword = filters.searchKeyword.toLowerCase().trim();
+            const description = transaction.description?.toLowerCase() || '';
+            const notes = transaction.notes?.toLowerCase() || '';
+            const amount = transaction.amount.toString();
+            
+            const matchesSearch = 
+              description.includes(keyword) || 
+              notes.includes(keyword) || 
+              amount.includes(keyword);
+            
+            if (!matchesSearch) return false;
+          }
           
           return true;
         });
@@ -384,6 +377,40 @@ export const useTransactionsStore = create<TransactionsState>()(
           }, {} as { [categoryId: string]: number });
       },
     }),
+    {
+      name: 'transactions-storage',
+        storage: {
+          getItem: (name) => {
+            const str = sessionStorage.getItem(name);
+            if (!str) return null;
+            const { state } = JSON.parse(str);
+            return {
+              state: {
+                ...state,
+                filters: {
+                  ...state.filters,
+                  dateRange: {
+                    start: state.filters.dateRange.start ? new Date(state.filters.dateRange.start) : null,
+                    end: state.filters.dateRange.end ? new Date(state.filters.dateRange.end) : null,
+                  },
+                },
+              },
+            };
+          },
+          setItem: (name, value) => {
+            sessionStorage.setItem(name, JSON.stringify(value));
+          },
+          removeItem: (name) => {
+            sessionStorage.removeItem(name);
+          },
+        },
+        partialize: (state) => ({
+          sortBy: state.sortBy,
+          filtersInitialized: state.filtersInitialized,
+          filters: state.filters,
+        }),
+      }
+    ),
     { name: 'transactions-store' }
   )
 );

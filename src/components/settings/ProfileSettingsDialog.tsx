@@ -53,7 +53,6 @@ export const ProfileSettingsDialog = ({
       onOpenChange(false);
     } catch (error) {
       toast.error("Failed to update profile");
-      console.error(error);
     } finally {
       setIsSaving(false);
     }

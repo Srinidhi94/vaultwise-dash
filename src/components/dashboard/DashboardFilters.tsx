@@ -4,7 +4,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Calendar, Filter, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { startOfMonth, endOfMonth, subMonths, startOfYear } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { startOfMonth, endOfMonth, subMonths, startOfYear, format } from "date-fns";
 
 interface DashboardFiltersProps {
   dateRange: { start: Date; end: Date };
@@ -22,6 +24,7 @@ export const DashboardFilters = ({
   accounts,
 }: DashboardFiltersProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [showCustomInputs, setShowCustomInputs] = useState(false);
   const today = new Date();
 
   const datePresets = [
@@ -53,22 +56,50 @@ export const DashboardFilters = ({
       value: "thisYear",
       range: { start: startOfYear(today), end: endOfMonth(today) },
     },
+    {
+      label: "Custom Range",
+      value: "custom",
+      range: { start: dateRange.start, end: dateRange.end },
+    },
   ];
 
+  // Check if current date range matches any preset
+  const isCustomRange = () => {
+    return !datePresets.slice(0, -1).some(
+      (p) =>
+        p.range.start.getTime() === dateRange.start.getTime() &&
+        p.range.end.getTime() === dateRange.end.getTime()
+    );
+  };
+
   const getCurrentPreset = () => {
+    if (showCustomInputs) return "custom";
     const preset = datePresets.find(
       (p) =>
         p.range.start.getTime() === dateRange.start.getTime() &&
         p.range.end.getTime() === dateRange.end.getTime()
     );
-    return preset?.value || "last3Months";
+    return preset?.value || "thisYear";
   };
 
   const handleDatePresetChange = (value: string) => {
+    if (value === "custom") {
+      setShowCustomInputs(true);
+      return;
+    }
+    setShowCustomInputs(false);
     const preset = datePresets.find((p) => p.value === value);
     if (preset) {
       onDateRangeChange(preset.range);
     }
+  };
+
+  const handleCustomDateChange = (type: "start" | "end", value: string) => {
+    const date = value ? new Date(value) : (type === "start" ? dateRange.start : dateRange.end);
+    onDateRangeChange({
+      ...dateRange,
+      [type]: date,
+    });
   };
 
   const savingsAccounts = accounts.filter((a) => a.type === "savings");
@@ -81,12 +112,20 @@ export const DashboardFilters = ({
   };
 
   const getDateLabel = () => {
+    if (isCustomRange()) {
+      // Format: "Jan 1 - Dec 31" or "Jan 1 - Dec 31, 2024" if different years
+      const startYear = dateRange.start.getFullYear();
+      const endYear = dateRange.end.getFullYear();
+      const startStr = format(dateRange.start, "MMM d");
+      const endStr = format(dateRange.end, startYear === endYear ? "MMM d" : "MMM d, yyyy");
+      return `${startStr} - ${endStr}${startYear === endYear ? `, ${endYear}` : ''}`;
+    }
     const preset = datePresets.find(
       (p) =>
         p.range.start.getTime() === dateRange.start.getTime() &&
         p.range.end.getTime() === dateRange.end.getTime()
     );
-    return preset?.label || "Custom Range";
+    return preset?.label || "This Year";
   };
 
   return (
@@ -133,6 +172,36 @@ export const DashboardFilters = ({
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Custom Date Range Inputs */}
+            {showCustomInputs && (
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div>
+                  <Label htmlFor="startDate" className="text-xs">
+                    From
+                  </Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={dateRange.start ? new Date(dateRange.start).toISOString().split('T')[0] : ''}
+                    onChange={(e) => handleCustomDateChange('start', e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="endDate" className="text-xs">
+                    To
+                  </Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={dateRange.end ? new Date(dateRange.end).toISOString().split('T')[0] : ''}
+                    onChange={(e) => handleCustomDateChange('end', e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Account Filter */}

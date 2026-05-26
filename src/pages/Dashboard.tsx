@@ -4,6 +4,7 @@ import { useAccountsStore } from "@/stores/useAccountsStore";
 import { useTransactionsStore } from "@/stores/useTransactionsStore";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
 import { useProfileStore } from "@/stores/useProfileStore";
+import { useDashboardStore } from "@/stores/useDashboardStore";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import BottomNavigation from '@/components/layout/BottomNavigation';
@@ -11,7 +12,9 @@ import { FloatingActionButton } from '@/components/ui/floating-action-button';
 import { AddTransactionSheet } from '@/components/transactions/AddTransactionSheet';
 import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
 import { SpendsByCategory } from '@/components/dashboard/SpendsByCategory';
-import { AccountActivity } from '@/components/dashboard/AccountActivity';
+import { IncomeByCategory } from '@/components/dashboard/IncomeByCategory';
+import { CreditUtilization } from '@/components/dashboard/CreditUtilization';
+import { formatFullAmount, formatAmount } from '@/utils/numberFormat';
 import { TrendingUp, User, LogOut, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
@@ -21,20 +24,15 @@ import { toast } from 'sonner';
 const Dashboard = () => {
   const { user, signOut } = useAuthStore();
   const { fetchAccounts, getTotalSavingsBalance, savingsAccounts, creditCards, loading: accountsLoading } = useAccountsStore();
-  const { fetchTransactions, fetchCategories, transactions, categories, loading: transactionsLoading } = useTransactionsStore();
-  const { currencySymbol } = usePreferencesStore();
+  const { fetchTransactions, fetchCategories, transactions, categories, loading: transactionsLoading, setFilters: setTransactionFilters } = useTransactionsStore();
+  const { currencySymbol, numberFormat } = usePreferencesStore();
   const { getDisplayName, fetchProfile } = useProfileStore();
   const navigate = useNavigate();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   
-  // Filter state
-  const today = new Date();
-  const [dateRange, setDateRange] = useState({
-    start: startOfMonth(today),
-    end: endOfMonth(today),
-  });
-  const [selectedAccountId, setSelectedAccountId] = useState('all');
+  // Filter state from store
+  const { dateRange, selectedAccountId, setDateRange, setSelectedAccountId } = useDashboardStore();
 
   useEffect(() => {
     if (user) {
@@ -46,11 +44,7 @@ const Dashboard = () => {
   }, [user, fetchAccounts, fetchTransactions, fetchCategories, fetchProfile]);
 
   const formatCurrency = (amount: number) => {
-    const formatted = new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-    return `${currencySymbol}${formatted}`;
+    return `${currencySymbol}${formatFullAmount(amount, numberFormat, 2)}`;
   };
 
   const totalSavings = getTotalSavingsBalance();
@@ -108,12 +102,10 @@ const Dashboard = () => {
       creditUtilization: creditUtil,
       expenseData: Object.entries(expenseByCategory)
         .map(([name, amount]) => ({ name, amount }))
-        .sort((a, b) => b.amount - a.amount)
-        .slice(0, 10),
+        .sort((a, b) => b.amount - a.amount),
       incomeData: Object.entries(incomeByCategory)
         .map(([name, amount]) => ({ name, amount }))
-        .sort((a, b) => b.amount - a.amount)
-        .slice(0, 10),
+        .sort((a, b) => b.amount - a.amount),
     };
   }, [filteredTransactions, creditCards, categories, dateRange]);
   
@@ -129,6 +121,18 @@ const Dashboard = () => {
     } finally {
       setIsSigningOut(false);
     }
+  };
+
+  const handleViewAllTransactions = () => {
+    // Apply dashboard filters to transactions page
+    setTransactionFilters({
+      dateRange: {
+        start: dateRange.start,
+        end: dateRange.end,
+      },
+      accountId: selectedAccountId !== 'all' ? selectedAccountId : undefined,
+    });
+    navigate('/transactions');
   };
 
   if (accountsLoading || transactionsLoading) {
@@ -190,8 +194,9 @@ const Dashboard = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs sm:text-sm text-muted-foreground">Income</p>
-                  <p className="text-lg sm:text-2xl font-bold text-success truncate">
-                    {currencySymbol}{analytics.totalIncome.toFixed(0)}
+                  <p className="text-base sm:text-xl font-bold text-success">
+                    <span className="sm:hidden">{currencySymbol}{formatAmount(analytics.totalIncome, numberFormat, 2)}</span>
+                    <span className="hidden sm:inline">{formatCurrency(analytics.totalIncome)}</span>
                   </p>
                 </div>
               </div>
@@ -206,39 +211,33 @@ const Dashboard = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs sm:text-sm text-muted-foreground">Expense</p>
-                  <p className="text-lg sm:text-2xl font-bold text-destructive truncate">
-                    {currencySymbol}{analytics.totalExpense.toFixed(0)}
+                  <p className="text-base sm:text-xl font-bold text-destructive">
+                    <span className="sm:hidden">{currencySymbol}{formatAmount(analytics.totalExpense, numberFormat, 2)}</span>
+                    <span className="hidden sm:inline">{formatCurrency(analytics.totalExpense)}</span>
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Row 2: Spends Chart & Account Activity */}
+          {/* Row 2: Income by Category (or Credit Utilization) & Spends by Category */}
+          {selectedAccountId !== 'all' && creditCards.find(c => c.id === selectedAccountId) ? (
+            <CreditUtilization
+              currentBalance={creditCards.find(c => c.id === selectedAccountId)?.current_balance || 0}
+              creditLimit={creditCards.find(c => c.id === selectedAccountId)?.credit_limit || 0}
+              currencySymbol={currencySymbol}
+              cardName={creditCards.find(c => c.id === selectedAccountId)?.name || 'Credit Card'}
+            />
+          ) : (
+            <IncomeByCategory
+              data={analytics.incomeData}
+              currencySymbol={currencySymbol}
+            />
+          )}
+
           <SpendsByCategory
             data={analytics.expenseData}
             currencySymbol={currencySymbol}
-          />
-
-          <AccountActivity
-            transactions={filteredTransactions.map(t => ({
-              account_id: t.account_id,
-              account_type: t.account_type,
-              transaction_type: t.transaction_type,
-              amount: t.amount,
-              transaction_date: t.transaction_date
-            }))}
-            savingsAccounts={savingsAccounts.map(acc => ({
-              ...acc,
-              type: "savings" as const
-            }))}
-            creditCards={creditCards.map(card => ({
-              ...card,
-              type: "credit" as const
-            }))}
-            currencySymbol={currencySymbol}
-            startDate={dateRange.start}
-            endDate={dateRange.end}
           />
         </div>
 
@@ -246,7 +245,7 @@ const Dashboard = () => {
         <Card className="financial-card">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-lg">Recent Transactions</CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/transactions')}>
+            <Button variant="ghost" size="sm" onClick={handleViewAllTransactions}>
               <span className="text-primary text-sm">View All</span>
             </Button>
           </CardHeader>
@@ -255,9 +254,9 @@ const Dashboard = () => {
               <div className="text-center py-6 sm:py-8 text-muted-foreground">
                 <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <h3 className="font-medium mb-2">No transactions yet</h3>
-                <p className="text-sm mb-4">Start by adding your first transaction</p>
-                <Button size="sm" onClick={() => navigate('/transactions')}>
-                  Add Transaction
+                <p className="text-sm mb-4">Link an account to sync your transactions</p>
+                <Button size="sm" onClick={() => navigate('/accounts')}>
+                  Go to Accounts
                 </Button>
               </div>
             ) : (
@@ -265,7 +264,7 @@ const Dashboard = () => {
                 {recentTransactions.map((transaction) => (
                   <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors">
                     <div className="flex-1 min-w-0 pr-3">
-                      <h4 className="font-medium text-sm truncate">{transaction.description}</h4>
+                      <h4 className="font-medium text-sm truncate">{transaction.user_description || transaction.description}</h4>
                       <p className="text-xs text-muted-foreground">
                         {format(new Date(transaction.transaction_date), 'MMM dd, yyyy')}
                       </p>
@@ -286,15 +285,19 @@ const Dashboard = () => {
         </Card>
       </div>
       
-      <FloatingActionButton
-        onClick={() => setIsAddSheetOpen(true)}
-        ariaLabel="Add transaction"
-      />
-      
-      <AddTransactionSheet
-        open={isAddSheetOpen}
-        onOpenChange={setIsAddSheetOpen}
-      />
+      {(savingsAccounts.some(a => a.source !== 'aa') || creditCards.some(c => c.source !== 'aa')) && (
+        <>
+          <FloatingActionButton
+            onClick={() => setIsAddSheetOpen(true)}
+            ariaLabel="Add transaction"
+          />
+          
+          <AddTransactionSheet
+            open={isAddSheetOpen}
+            onOpenChange={setIsAddSheetOpen}
+          />
+        </>
+      )}
       
       <BottomNavigation />
     </div>

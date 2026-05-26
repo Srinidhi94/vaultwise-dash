@@ -1,26 +1,53 @@
 # VaultWise Architecture
 
+**Version**: 2.0  
+**Last Updated**: January 6, 2025  
+**Status**: Production-Ready MVP
+
 Technical architecture and design decisions for the VaultWise finance dashboard.
 
 ---
 
 ## 📊 System Overview
 
-VaultWise is a personal finance management application with AI-powered bank statement processing capabilities.
+VaultWise (SpendWise) is a **personal finance management application** built as a mobile-first web app. It helps users track income, expenses, and account balances across multiple savings accounts and credit cards, with support for bank-synced accounts via India's Account Aggregator framework.
+
+### High-Level Architecture
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   React App     │────▶│  Supabase Cloud  │────▶│   PostgreSQL    │
-│  (TypeScript)   │     │  (Auth, Storage) │     │   (Database)    │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-         │
-         │ webhook
-         ▼
-┌─────────────────┐     ┌──────────────────┐
-│  n8n Workflow   │────▶│   AI Models      │
-│  (28 nodes)     │     │ GPT-4.1 + Claude │
-└─────────────────┘     └──────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        USER LAYER                               │
+│  Web Browser (Chrome, Safari, Firefox) + Mobile (iOS, Android) │
+└─────────────────────────────────────────────────────────────────┘
+                              ↕ HTTPS
+┌─────────────────────────────────────────────────────────────────┐
+│                    FRONTEND LAYER (Vercel)                      │
+│   React 18 + TypeScript + Vite + Tailwind + shadcn/ui          │
+│   Zustand State Management + React Router v6                    │
+└─────────────────────────────────────────────────────────────────┘
+                              ↕ API Calls
+┌─────────────────────────────────────────────────────────────────┐
+│                   BACKEND LAYER (Supabase)                      │
+│  PostgreSQL 17 + Auth + Storage + Row Level Security (RLS)     │
+└─────────────────────────────────────────────────────────────────┘
+                              ↕ Edge Functions
+┌─────────────────────────────────────────────────────────────────┐
+│              ACCOUNT AGGREGATOR LAYER (Supabase Edge)           │
+│  AA Proxy Edge Function + Consent Management + Data Fetch      │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+### Key Architectural Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|------------|
+| **Frontend Framework** | React 18 + TypeScript | Type safety, large ecosystem, excellent tooling |
+| **Build Tool** | Vite | Fast HMR, optimized builds, modern defaults |
+| **Backend** | Supabase (PostgreSQL) | Instant APIs, built-in auth, RLS for security |
+| **State Management** | Zustand | Lightweight (3KB), simple API, no boilerplate |
+| **UI Library** | shadcn/ui + Radix UI | Accessible, customizable, modern design |
+| **Balance Calculation** | Dynamic (computed) | Single source of truth, prevents data inconsistency |
+| **Bank Sync** | Account Aggregator (AA) | RBI-regulated, consent-based, no PDF parsing needed |
 
 ---
 
@@ -44,12 +71,136 @@ VaultWise is a personal finance management application with AI-powered bank stat
 - **RLS**: Row Level Security enabled on all tables
 - **Real-time**: Not used (simplified architecture)
 
-### AI Processing
-- **Workflow Engine**: n8n Cloud
-- **LLM Models**: 
-  - GPT-4.1-mini (OpenAI)
-  - Claude Sonnet 4 (Anthropic)
-- **Processing**: Synchronous webhook-based
+### Bank Sync (Account Aggregator)
+- **Integration**: Supabase Edge Function (`aa-proxy`)
+- **Provider**: Setu (RBI-regulated AA) or mock provider for development
+- **Flow**: Consent-based data fetch via AA framework
+
+---
+
+## 🏗️ Core Architecture Patterns
+
+### Dynamic Balance Calculation
+
+**Design Decision**: Account balances are **computed dynamically** from transactions, not stored.
+
+```
+Transaction Created/Updated/Deleted
+    ↓
+ recalculateBalances() triggered
+    ↓
+Fetch ALL transactions for account
+    ↓
+Savings: opening_balance + ∑(income) - ∑(expense)
+Credit:  ∑(expense) - ∑(income)
+    ↓
+Update in-memory state (no DB write)
+```
+
+**Benefits**:
+- ✅ **Single source of truth** - Transactions are the only data
+- ✅ **Data integrity** - Balances always accurate
+- ✅ **Audit trail** - Can reconstruct balance at any point in time
+- ✅ **No sync issues** - Impossible for balance to be "off"
+
+**Implementation**: `utils/accountBalanceUtils.ts`
+
+```typescript
+// Savings: Opening + Income - Expense
+export const calculateSavingsBalance = (
+  accountId: string,
+  openingBalance: number,
+  transactions: Transaction[]
+): number => {
+  const income = transactions
+    .filter(t => t.account_id === accountId && t.transaction_type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const expense = transactions
+    .filter(t => t.account_id === accountId && t.transaction_type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  return openingBalance + income - expense;
+};
+
+// Credit: Expense - Income (amount owed)
+export const calculateCreditCardBalance = (
+  cardId: string,
+  transactions: Transaction[]
+): number => {
+  const expense = transactions
+    .filter(t => t.account_id === cardId && t.transaction_type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  const income = transactions
+    .filter(t => t.account_id === cardId && t.transaction_type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  return Math.abs(expense - income);
+};
+```
+
+### Number Formatting System
+
+**Cross-Cutting Concern**: Display numbers in user's preferred format (Indian vs International).
+
+```
+User Preference (in database)
+    ↓
+'indian' → Lakhs/Crores with 12,34,567 commas
+'international' → Millions/Billions with 1,234,567 commas
+    ↓
+Applied across ALL components:
+- Dashboard cards
+- Chart labels & legends
+- Transaction lists
+- Account balances
+```
+
+**Two Formatting Functions**:
+
+```typescript
+// Abbreviated (for cards, mobile)
+formatAmount(1234567, 'indian') → "12.35L"
+formatAmount(1234567, 'international') → "1.23M"
+
+// Full with commas (for details)
+formatFullAmount(1234567, 'indian') → "12,34,567.00"
+formatFullAmount(1234567, 'international') → "1,234,567.00"
+```
+
+**Responsive Display**:
+- **Mobile**: Abbreviated amounts (saves space)
+- **Desktop**: Full amounts with commas
+
+### State Management Pattern
+
+**Zustand Stores** follow consistent structure:
+
+```typescript
+interface StorePattern {
+  // Data
+  items: Item[];
+  loading: boolean;
+  error: string | null;
+  
+  // Actions (async)
+  fetchItems: () => Promise<void>;
+  addItem: (item: Omit<Item, 'id'>) => Promise<void>;
+  updateItem: (id: string, updates: Partial<Item>) => Promise<void>;
+  deleteItem: (id: string) => Promise<void>;
+  
+  // Computed (sync)
+  getItemById: (id: string) => Item | undefined;
+}
+```
+
+**Key Patterns**:
+1. **Loading states** - Always set before async operations
+2. **Optimistic updates** - Update local state immediately
+3. **Error handling** - Try-catch + toast notifications
+4. **Devtools integration** - For debugging
+5. **Session persistence** - Date filters persisted in sessionStorage
 
 ---
 
@@ -174,95 +325,51 @@ USING (auth.uid() = user_id);
 
 ---
 
-## 🤖 AI Processing Pipeline
+## 🔗 Account Aggregator Pipeline
 
-### Architecture Decision: Synchronous Processing
+### Architecture Decision: RBI-regulated AA Framework
 
-**Chosen approach**: Direct webhook with synchronous response
-- ✅ Simpler: No job queue, no background processing
-- ✅ Faster: Immediate feedback to user
-- ✅ Reliable: Fewer failure points
-- ✅ Debuggable: Easy to trace issues
+**Chosen approach**: India's Account Aggregator (AA) framework for bank data sync
+- ✅ Consent-based: User controls data sharing
+- ✅ No PDF parsing: Direct structured data from banks
+- ✅ RBI-regulated: Fully compliant, not screen-scraping
+- ✅ Scalable: 126+ live FIPs (banks)
 
-**Rejected approaches**:
-- ❌ Async job queue (too complex)
-- ❌ Real-time notifications (unnecessary)
-- ❌ `processing_jobs` table (over-engineering)
+### AA Proxy Edge Function
 
-### n8n Workflow Structure (28 Nodes)
+The `supabase/functions/aa-proxy/index.ts` Edge Function handles:
 
-**Phase 1: File Processing** (4 nodes)
-1. Webhook Trigger - Receives file URL
-2. Download File - Fetches from Supabase Storage
-3. File Type Switch - Routes to PDF or CSV handler
-4. Read PDF / Process CSV - Extracts text
+1. **Create Consent** — Initiates consent with AA provider (Setu)
+2. **Check Consent Status** — Polls provider for approval
+3. **Fetch Data** — Downloads transactions once consent is active
+4. **Sync Account** — Re-fetches latest data for an existing linked account
+5. **Revoke Consent** — Revokes consent with the provider
+6. **Check & Revoke** — Auto-revokes consent when an account is unlinked
 
-**Phase 2: Context Fetching** (4 nodes)
-5. Format User Data - Extracts user_id
-6. Read User Categories - Fetches from database
-7. Format Categories - Groups by type (income/expense)
-8. Read User Accounts - Fetches registered accounts
-9. Format Accounts - Prepares for AI
+### Data Flow
 
-**Phase 3: AI Processing** (3 nodes)
-10. AI Transaction Processor (LangChain)
-    - Input: Statement text + categories + accounts
-    - Output: Structured JSON with transactions
-11. OpenAI Chat Model (GPT-4.1-mini)
-12. Claude Chat Model (Sonnet 4)
-13. Structured Output Parser - Validates JSON schema
-
-**Phase 4: Account Resolution** (3 nodes)
-14. Resolve Account - Matches AI-detected account to database
-15. If Account Matched - Validates account exists
-16. Format Error Response - Handles unmatched accounts
-
-**Phase 5: Deduplication** (4 nodes)
-17. Compute Statement Range - Extracts date range
-18. Fetch Existing Transactions - Gets transactions in range
-19. Format & Deduplicate - Removes duplicates (fuzzy matching)
-20. Prepare Save Payload - Formats for Supabase
-
-**Phase 6: Save & Cleanup** (4 nodes)
-21. If Has Payload - Checks for new transactions
-22. Save to Supabase - Bulk insert
-23. Format Response - Prepares success message
-24. Return Response - Sends webhook response
-
-### AI Prompt Strategy
-
-**Structured Output Parser**: JSON schema enforcement
-```json
-{
-  "account": {
-    "label": "string (exact match)",
-    "type": "savings|credit",
-    "matched": "boolean"
-  },
-  "transactions": [{
-    "date": "DD/MM/YYYY",
-    "description": "string",
-    "amount": "number",
-    "type": "income|expense",
-    "category": "string (from provided list)",
-    "account": "string (matches account.label)"
-  }],
-  "summary": {
-    "total_transactions": "number",
-    "consistency": "pass|warn|fail"
-  }
-}
+```
+1. User clicks "Connect bank"
+   ↓
+2. Frontend calls aa-proxy → createConsent
+   ↓
+3. User approves consent on AA provider redirect
+   ↓
+4. Frontend polls consentStatus until active
+   ↓
+5. Frontend calls fetchData → Edge Function fetches from provider
+   ↓
+6. Edge Function normalises accounts + transactions → upserts into DB
+   ↓
+7. Frontend refreshes accounts/transactions from Supabase
 ```
 
-**Category Matching**: Type-aware categorization
-- Income transactions → Only income categories
-- Expense transactions → Only expense categories
-- Fallback to "Others" if no match
+### Account Deduplication
 
-**Account Detection**: Multi-signal matching
-- Account numbers, bank names, holder names
-- Confidence scoring
-- Explicit match flag
+When re-linking accounts (e.g., after a consent revoke + re-create), the Edge Function:
+- First tries exact match (same consent)
+- Falls back to cross-consent match by `fip_id` + `masked_account_number`
+- Reuses existing local accounts to preserve transaction history
 
 ---
 
@@ -279,53 +386,19 @@ USING (auth.uid() = user_id);
 6. RLS policies validate auth.uid() matches user_id
 ```
 
-### File Upload Security
-
-**Temporary Storage Pattern**:
-```
-1. User uploads file (PDF/CSV)
-   ↓
-2. Upload to Supabase Storage (statements bucket)
-   - Private bucket
-   - User-specific folder: /{user_id}/filename.pdf
-   ↓
-3. Generate signed URL (5-minute expiry)
-   ↓
-4. Call n8n webhook with signed URL
-   ↓
-5. n8n downloads and processes file
-   ↓
-6. DELETE file from storage immediately
-   ↓
-7. Return results to frontend
-```
-
-**Key Security Measures**:
-- ✅ Files never publicly accessible
-- ✅ Signed URLs with short expiry (5 minutes)
-- ✅ Automatic deletion after processing
-- ✅ RLS policies prevent cross-user access
-- ✅ File type and size validation
-- ✅ No permanent storage of bank statements
-
 ### Environment Variables
 
 **Frontend** (`.env.local`):
 ```bash
 VITE_SUPABASE_URL=https://xxx.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJxxx...
-VITE_N8N_WEBHOOK_URL=https://n8n.example.com/webhook/vaultwise-process
+VITE_SUPABASE_PUBLISHABLE_KEY=eyJxxx...
 ```
 
-**Backend** (Supabase secrets):
+**Backend** (Supabase secrets / Edge Function env):
 - Database connection string
 - JWT secret for auth
-- Storage keys
-
-**n8n** (workflow credentials):
-- Supabase API key
-- OpenAI API key
-- Anthropic API key
+- `AA_PROVIDER` — `setu` or `mock`
+- `SETU_CLIENT_ID` / `SETU_CLIENT_SECRET` (if using Setu)
 
 ---
 
@@ -381,7 +454,7 @@ const useStore = create<Store>()(
 - `useProfileStore` - User profile and subscription
 - `useAccountsStore` - Savings accounts and credit cards
 - `useTransactionsStore` - Transactions with categories
-- `useStatementStore` - File upload and processing
+- `useAccountAggregatorStore` - AA consent and bank sync
 - `usePreferencesStore` - UI preferences
 
 ### Component Architecture
@@ -491,9 +564,7 @@ Mobile-first navigation pattern:
 
 - **Users**: No limit (Supabase scales automatically)
 - **Transactions per user**: Unlimited
-- **File uploads**: 10 MB max, PDF/CSV only
-- **Processing time**: 30-120 seconds per statement
-- **n8n**: Cloud plan limits (executions/month)
+- **AA sync**: Dependent on AA provider rate limits
 
 ### Future Scaling
 
@@ -511,7 +582,7 @@ Mobile-first navigation pattern:
 
 - **Frontend**: Vercel / Netlify (planned)
 - **Backend**: Supabase Cloud (huxhlktqxdkafbjtbwyr)
-- **n8n**: n8n Cloud (venom94.app.n8n.cloud)
+- **Edge Functions**: Supabase Edge (Deno runtime)
 - **Database**: Supabase PostgreSQL (auto-managed)
 - **Storage**: Supabase Storage (auto-managed)
 
@@ -539,11 +610,10 @@ Mobile-first navigation pattern:
 
 ### Phase 2 Features
 
-- **Multi-file upload**: Batch processing
-- **Processing history**: Track past uploads
-- **Email ingestion**: Forward statements to email
-- **OCR improvements**: Better extraction accuracy
-- **International banks**: Support more formats
+- **Recurring transactions**: Detect and auto-create
+- **Budget tracking**: Set and monitor spending budgets
+- **Export**: CSV/PDF export of transactions
+- **Multi-currency**: Support for international users
 
 ### Technical Debt
 
@@ -558,29 +628,172 @@ Mobile-first navigation pattern:
 
 ## 📚 Architecture Decisions Log
 
-### Decision 1: Synchronous Processing
-**Context**: Need to process bank statements with AI
-**Decision**: Synchronous webhook instead of async jobs
-**Rationale**: Simpler, faster, fewer failure points
+### Decision 1: Account Aggregator Integration
+**Context**: Need automated bank account data sync
+**Decision**: Use India's AA framework via Setu provider
+**Rationale**: RBI-regulated, consent-based, no screen scraping
 **Status**: ✅ Implemented and working
 
 ### Decision 2: Type-Based Categories
 **Context**: Need better category organization
 **Decision**: Split categories into income/expense types
-**Rationale**: Prevents mismatched categorization by AI
+**Rationale**: Prevents mismatched categorization
 **Status**: ✅ Implemented
 
-### Decision 3: No Permanent File Storage
-**Context**: Security and privacy concerns
-**Decision**: Delete files immediately after processing
-**Rationale**: Reduces liability, improves security
+### Decision 3: Dynamic Balance Computation
+**Context**: Need accurate account balances
+**Decision**: Compute balances from transactions at runtime
+**Rationale**: Single source of truth, prevents stale data
 **Status**: ✅ Implemented
 
-### Decision 4: Dual LLM Strategy
-**Context**: Need reliable AI extraction
-**Decision**: Use GPT-4.1-mini + Claude Sonnet 4
-**Rationale**: Fallback option, better accuracy
-**Status**: ✅ Implemented
+---
+
+## 🔄 Data Flow Patterns
+
+### Manual Transaction Entry Flow
+
+```
+User clicks "+" button
+    ↓
+AddTransactionDialog opens
+    ↓
+User fills form (account, amount, type, description, category)
+    ↓
+Validation (React Hook Form + Yup)
+    ↓
+Submit → useTransactionsStore.addTransaction()
+    ↓
+Supabase INSERT (RLS validates user_id)
+    ↓
+Success → Update local state
+    ↓
+recalculateBalances() triggered
+    ↓
+Dashboard auto-refreshes
+```
+
+### Dashboard Load Sequence
+
+```
+Page Mount
+    ↓
+Check Auth → useAuthStore
+    ↓
+Parallel Fetches:
+  - Preferences (currency, number format)
+  - Accounts (all savings + credit cards)
+  - Transactions (all records)
+  - Categories (all user categories)
+    ↓
+Compute Balances (dynamic calculation)
+    ↓
+Apply Filters (date range, account)
+    ↓
+Compute Analytics (income, expense, breakdown)
+    ↓
+Render UI
+```
+
+---
+
+## 🚀 Deployment & Infrastructure
+
+### Frontend (Vercel)
+
+```
+Git Push → Vercel Auto-Deploy
+    ↓
+npm install + npm run build
+    ↓
+Output: dist/ (static files)
+    ↓
+Deploy to global CDN
+    ↓
+Live in <2 minutes
+```
+
+**Current URL**: https://spendwise-*.vercel.app
+
+### Backend (Supabase)
+
+- **Project**: huxhlktqxdkafbjtbwyr
+- **Database**: PostgreSQL 17.6.1
+- **Region**: ap-south-1 (Mumbai)
+- **Backups**: Daily automatic
+
+### Edge Functions (Supabase)
+
+- **Runtime**: Deno
+- **Function**: `aa-proxy` (Account Aggregator integration)
+- **Auth**: JWT-validated via Supabase Auth
+
+---
+
+## ⚡ Performance
+
+### Load Metrics
+
+| Metric | Target | Current |
+|--------|--------|--------|
+| FCP | <1.5s | ~1.2s |
+| LCP | <2.5s | ~1.8s |
+| TTI | <3.5s | ~2.5s |
+| Bundle | <500KB | 403KB (gzipped) |
+
+### Optimizations
+
+- ✅ Lazy loading for dialogs
+- ✅ Memoization (useMemo)
+- ✅ Debounced search
+- ✅ In-memory balance calculations
+- ✅ Single transaction fetch per session
+
+---
+
+## 🔒 Security
+
+### Authentication
+
+```
+User Login
+    ↓
+Supabase Auth validates
+    ↓
+JWT token generated (sub = user_id)
+    ↓
+Token in localStorage
+    ↓
+All API calls include: Authorization: Bearer <token>
+    ↓
+RLS policies check: auth.uid() = user_id
+```
+
+### Data Protection
+
+- ✅ TLS 1.3 encryption (all connections)
+- ✅ PostgreSQL encryption at rest
+- ✅ RLS policies (complete data isolation)
+- ✅ AA data fetched via consent, not stored permanently
+
+---
+
+## 📈 Scalability
+
+### Current Capacity
+
+| Metric | Limit (Free Tier) |
+|--------|------------------|
+| Users | Unlimited |
+| Database | 500MB |
+| Bandwidth | 5GB/month |
+| Storage | 1GB |
+| API Requests | Unlimited |
+
+### Growth Strategy
+
+**0-100 users**: Free tiers sufficient  
+**100-1K users**: Upgrade to Supabase Pro ($25/mo)  
+**1K-10K users**: Add caching, read replicas  
 
 ---
 
@@ -589,8 +802,8 @@ Mobile-first navigation pattern:
 ### Monitoring
 
 - Supabase dashboard for database metrics
-- n8n execution logs for workflow debugging
-- Browser console for frontend errors
+- Supabase Edge Function logs for debugging
+- Browser DevTools for frontend errors
 
 ### Backup Strategy
 
@@ -602,8 +815,22 @@ Mobile-first navigation pattern:
 
 - Database migrations via Supabase CLI
 - Frontend updates via git push
-- n8n workflow updates via UI
+- Edge Function deploys via Supabase CLI
 
 ---
 
-**Last Updated**: October 4, 2025
+---
+
+## 📚 Related Documentation
+
+- **[Product Requirements](./PRD.md)** - Feature roadmap and business goals
+- **[Ideal Customer Profile](./ICP.md)** - Target user personas
+- **[Development Guide](./DEVELOPMENT.md)** - Setup instructions
+- **[Contributing Guide](./CONTRIBUTING.md)** - Code standards and workflow
+- **[README](../README.md)** - Project overview
+
+---
+
+**Version**: 2.0  
+**Last Updated**: January 6, 2025  
+**Status**: Production-Ready MVP

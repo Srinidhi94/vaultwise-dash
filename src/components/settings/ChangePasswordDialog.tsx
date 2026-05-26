@@ -69,9 +69,9 @@ export const ChangePasswordDialog = ({
         await supabase.auth.signOut();
       }, 1000);
 
-    } catch (error: any) {
-      toast.error(error.message || "Failed to change password");
-      console.error(error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to change password";
+      toast.error(message);
     } finally {
       setIsChanging(false);
     }

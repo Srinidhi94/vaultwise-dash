@@ -76,8 +76,9 @@ export const ManageCategoriesDialog = ({
       setNewCategoryName("");
       setIsAdding(false);
       toast.success(`${activeTab} category added successfully!`);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to add category");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to add category";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -95,8 +96,9 @@ export const ManageCategoriesDialog = ({
       setEditingId(null);
       setEditingName("");
       toast.success("Category updated successfully!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to update category");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to update category";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -111,8 +113,9 @@ export const ManageCategoriesDialog = ({
     try {
       await deleteCategory(id);
       toast.success("Category deleted successfully!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete category");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to delete category";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }

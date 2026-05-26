@@ -1,28 +1,16 @@
 import { useEffect, useState } from "react";
-import { useTransactionsStore } from "@/stores/useTransactionsStore";
+import { useTransactionsStore, Transaction } from "@/stores/useTransactionsStore";
 import { useAccountsStore } from "@/stores/useAccountsStore";
+import { usePreferencesStore } from "@/stores/usePreferencesStore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Info, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-
-interface Transaction {
-  id: string;
-  description: string;
-  amount: number;
-  transaction_date: string;
-  transaction_type: "income" | "expense";
-  account_type: "savings" | "credit";
-  account_id: string;
-  category_id?: string;
-  notes?: string;
-}
 
 interface EditTransactionDialogProps {
   open: boolean;
@@ -39,10 +27,14 @@ export const EditTransactionDialog = ({
 }: EditTransactionDialogProps) => {
   const { updateTransaction, categories, getCategoriesByType } = useTransactionsStore();
   const { savingsAccounts, creditCards } = useAccountsStore();
+  const { currencySymbol } = usePreferencesStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isAA = transaction?.source === "aa";
   
   const [formData, setFormData] = useState({
     description: "",
+    user_description: "",
     category_id: "",
     notes: "",
     transaction_type: "expense" as "income" | "expense",
@@ -53,6 +45,7 @@ export const EditTransactionDialog = ({
     if (transaction) {
       setFormData({
         description: transaction.description || "",
+        user_description: transaction.user_description || "",
         category_id: transaction.category_id || "",
         notes: transaction.notes || "",
         transaction_type: transaction.transaction_type,
@@ -66,23 +59,29 @@ export const EditTransactionDialog = ({
     try {
       setIsSubmitting(true);
 
-      if (!formData.description.trim()) {
-        toast.error("Description is required");
-        return;
+      if (isAA) {
+        await updateTransaction(transaction.id, {
+          user_description: formData.user_description.trim() || undefined,
+          category_id: formData.category_id || undefined,
+          notes: formData.notes || undefined,
+        });
+      } else {
+        if (!formData.description.trim()) {
+          toast.error("Description is required");
+          return;
+        }
+        await updateTransaction(transaction.id, {
+          description: formData.description,
+          category_id: formData.category_id || undefined,
+          notes: formData.notes || undefined,
+          transaction_type: formData.transaction_type,
+        });
       }
-
-      await updateTransaction(transaction.id, {
-        description: formData.description,
-        category_id: formData.category_id || undefined,
-        notes: formData.notes || undefined,
-        transaction_type: formData.transaction_type,
-      });
 
       toast.success("Transaction updated successfully!");
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
-      console.error("Update transaction failed:", error);
       const message = error instanceof Error ? error.message : String(error);
       toast.error(message ? `Failed to update: ${message}` : "Failed to update transaction");
     } finally {
@@ -109,87 +108,96 @@ export const EditTransactionDialog = ({
         <DialogHeader>
           <DialogTitle>Edit Transaction</DialogTitle>
           <DialogDescription>
-            Update transaction details. Some fields are locked for data integrity.
+            {isAA
+              ? "You can update the display name, category, and notes. Other fields are synced from your bank."
+              : "Edit the details below. Date, amount, and account cannot be changed."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Locked Fields Info */}
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription className="text-xs">
-              Date, amount, and account are locked. To change these, delete this transaction and create a new one.
-            </AlertDescription>
-          </Alert>
+        <div className="overflow-y-auto max-h-[65vh] pr-2">
+          <div className="space-y-4">
+            {/* Compact Locked Fields Summary */}
+            <div className="bg-muted/50 rounded-lg p-3 border border-muted">
+              <div className="flex items-start gap-2">
+                <Lock className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                    <div>
+                      <span className="text-xs text-muted-foreground">Date</span>
+                      <p className="font-medium truncate">{format(new Date(transaction.transaction_date), "MMM dd, yyyy")}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground">Amount</span>
+                      <p className="font-medium truncate">{currencySymbol}{transaction.amount.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground">Account</span>
+                      <p className="font-medium truncate">{getAccountName()}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground">Type</span>
+                      <p className="font-medium truncate capitalize">{transaction.transaction_type}</p>
+                    </div>
+                    {isAA && (
+                      <div className="col-span-2">
+                        <span className="text-xs text-muted-foreground">Original Narration</span>
+                        <p className="font-medium text-xs truncate">{transaction.description}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
 
-          {/* Locked: Date */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-muted-foreground">
-              <Lock className="h-3 w-3" />
-              Date (Locked)
-            </Label>
-            <Input
-              value={format(new Date(transaction.transaction_date), "MMM dd, yyyy")}
-              disabled
-              className="bg-muted"
-            />
-          </div>
+          {/* AA: Display Name (user_description) */}
+          {isAA && (
+            <div className="space-y-2">
+              <Label htmlFor="user_description">Display Name</Label>
+              <Input
+                id="user_description"
+                placeholder={transaction.description}
+                value={formData.user_description}
+                onChange={(e) => setFormData({ ...formData, user_description: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Set a friendly name. Leave empty to use the original narration.
+              </p>
+            </div>
+          )}
 
-          {/* Locked: Amount */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-muted-foreground">
-              <Lock className="h-3 w-3" />
-              Amount (Locked)
-            </Label>
-            <Input
-              value={`$${transaction.amount.toFixed(2)}`}
-              disabled
-              className="bg-muted"
-            />
-          </div>
+          {/* Manual: Transaction Type */}
+          {!isAA && (
+            <div className="space-y-2">
+              <Label htmlFor="transactionType">Transaction Type *</Label>
+              <Select
+                value={formData.transaction_type}
+                onValueChange={(value: "income" | "expense") =>
+                  setFormData({ ...formData, transaction_type: value })
+                }
+              >
+                <SelectTrigger className="focus:ring-0 focus:ring-offset-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="income">Income</SelectItem>
+                  <SelectItem value="expense">Expense</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-          {/* Locked: Account */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-muted-foreground">
-              <Lock className="h-3 w-3" />
-              Account (Locked)
-            </Label>
-            <Input
-              value={getAccountName()}
-              disabled
-              className="bg-muted"
-            />
-          </div>
-
-          {/* Editable: Transaction Type */}
-          <div className="space-y-2">
-            <Label htmlFor="transactionType">Transaction Type *</Label>
-            <Select
-              value={formData.transaction_type}
-              onValueChange={(value: "income" | "expense") =>
-                setFormData({ ...formData, transaction_type: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="income">Income</SelectItem>
-                <SelectItem value="expense">Expense</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Editable: Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
-            <Input
-              id="description"
-              placeholder="e.g., Grocery shopping"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            />
-          </div>
+          {/* Manual: Description */}
+          {!isAA && (
+            <div className="space-y-2">
+              <Label htmlFor="description">Description *</Label>
+              <Input
+                id="description"
+                placeholder="e.g., Grocery shopping"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+          )}
 
           {/* Editable: Category */}
           <div className="space-y-2">
@@ -202,7 +210,7 @@ export const EditTransactionDialog = ({
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {getCategoriesByType(formData.transaction_type).map((category) => (
+                {getCategoriesByType(isAA ? transaction.transaction_type : formData.transaction_type).map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.name}
                   </SelectItem>
@@ -222,25 +230,26 @@ export const EditTransactionDialog = ({
               rows={3}
             />
           </div>
-
-          {/* Actions */}
-          <div className="flex gap-2 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="flex-1"
-            >
-              {isSubmitting ? "Saving..." : "Save Changes"}
-            </Button>
           </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2 pt-4">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="flex-1"
+          >
+            {isSubmitting ? "Saving..." : "Save Changes"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

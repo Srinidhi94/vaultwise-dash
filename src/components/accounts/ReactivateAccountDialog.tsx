@@ -16,6 +16,7 @@ interface ReactivateAccountDialogProps {
   onOpenChange: (open: boolean) => void;
   accountName: string;
   accountType: "savings" | "credit";
+  source: "manual" | "aa";
   onConfirm: () => Promise<void>;
 }
 
@@ -24,8 +25,10 @@ export const ReactivateAccountDialog = ({
   onOpenChange,
   accountName,
   accountType,
+  source,
   onConfirm,
 }: ReactivateAccountDialogProps) => {
+  const isBankSynced = source === 'aa';
   const [isReactivating, setIsReactivating] = useState(false);
 
   const handleReactivate = async () => {
@@ -57,15 +60,26 @@ export const ReactivateAccountDialog = ({
             <div className="p-3 border rounded-lg bg-primary/5">
               <p className="font-semibold text-sm mb-2">What will happen:</p>
               <ul className="text-xs text-muted-foreground space-y-1">
-                <li>• The account will be available for new transactions</li>
-                <li>• Historical transactions will appear in your analytics</li>
-                <li>• Account balance will be included in your totals</li>
-                <li>• The account will show in transaction dropdowns</li>
+                {isBankSynced ? (
+                  <>
+                    <li>• The account and its transactions will be visible again</li>
+                    <li>• Historical transactions will appear in your analytics</li>
+                    <li>• Account balance will be included in your totals</li>
+                    <li>• To sync new transactions, connect the bank again</li>
+                  </>
+                ) : (
+                  <>
+                    <li>• The account will be available for new transactions</li>
+                    <li>• Historical transactions will appear in your analytics</li>
+                    <li>• Account balance will be included in your totals</li>
+                    <li>• The account will show in transaction dropdowns</li>
+                  </>
+                )}
               </ul>
             </div>
 
             <p className="text-xs text-muted-foreground">
-              You can always mark it as inactive again if needed.
+              You can always {isBankSynced ? 'unlink' : 'mark as inactive'} again if needed.
             </p>
           </DialogDescription>
         </DialogHeader>

@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { useTransactionsStore } from "@/stores/useTransactionsStore";
 import { useAccountsStore } from "@/stores/useAccountsStore";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
+import { formatFullAmount } from "@/utils/numberFormat";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, TrendingUp, TrendingDown, Calendar, Trash2, Edit } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TrendingUp, TrendingDown, Calendar, Trash2, Edit, Cloud } from "lucide-react";
 import BottomNavigation from "@/components/layout/BottomNavigation";
 import { FloatingActionButton } from "@/components/ui/floating-action-button";
 import { AddTransactionSheet } from "@/components/transactions/AddTransactionSheet";
@@ -22,13 +24,16 @@ const Transactions = () => {
     transactions, 
     categories, 
     loading,
+    filters,
+    sortBy,
     fetchTransactions, 
     fetchCategories,
     deleteTransaction,
-    getFilteredTransactions
+    getFilteredTransactions,
+    setSortBy
   } = useTransactionsStore();
   const { fetchAccounts, savingsAccounts, creditCards } = useAccountsStore();
-  const { currencySymbol } = usePreferencesStore();
+  const { currencySymbol, numberFormat } = usePreferencesStore();
   
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
@@ -44,11 +49,7 @@ const Transactions = () => {
   }, [fetchTransactions, fetchCategories, fetchAccounts]);
 
   const formatCurrency = (amount: number) => {
-    const formatted = new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-    return `${currencySymbol}${formatted}`;
+    return `${currencySymbol}${formatFullAmount(amount, numberFormat, 2)}`;
   };
 
   const handleViewTransaction = (transaction: typeof transactions[0]) => {
@@ -82,7 +83,43 @@ const Transactions = () => {
     }
   };
 
-  const filteredTransactions = getFilteredTransactions();
+  const hasManualAccounts = savingsAccounts.some(a => a.source !== 'aa') || creditCards.some(c => c.source !== 'aa');
+
+  const getSortedTransactions = () => {
+    const filtered = getFilteredTransactions();
+    
+    if (sortBy === 'none') {
+      return filtered;
+    }
+    
+    if (sortBy === 'account') {
+      return [...filtered].sort((a, b) => {
+        const nameA = getAccountName(a.account_id, a.account_type);
+        const nameB = getAccountName(b.account_id, b.account_type);
+        const accountCompare = nameA.localeCompare(nameB);
+        // If same account, sort by date descending
+        if (accountCompare === 0) {
+          return new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime();
+        }
+        return accountCompare;
+      });
+    }
+    
+    if (sortBy === 'type') {
+      return [...filtered].sort((a, b) => {
+        // Income first (income < expense alphabetically)
+        if (a.transaction_type !== b.transaction_type) {
+          return a.transaction_type === 'income' ? -1 : 1;
+        }
+        // Within same type, sort by date descending
+        return new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime();
+      });
+    }
+    
+    return filtered;
+  };
+
+  const filteredTransactions = getSortedTransactions();
 
   if (loading) {
     return (
@@ -96,24 +133,30 @@ const Transactions = () => {
     <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20 pb-20">
       <div className="container mx-auto p-4 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Transactions</h1>
-            <p className="text-muted-foreground">Track your income and expenses</p>
-          </div>
-          
-          <Button 
-            size="sm" 
-            className="flex items-center gap-2"
-            onClick={() => setIsAddSheetOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            Add Transaction
-          </Button>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Transactions</h1>
+          <p className="text-muted-foreground">Track your income and expenses</p>
         </div>
 
         {/* Filters */}
         <TransactionFilters />
+
+        {/* Sort Control */}
+        {filteredTransactions.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Sort by:</span>
+            <Select value={sortBy} onValueChange={(value: 'none' | 'account' | 'type') => setSortBy(value)}>
+              <SelectTrigger className="flex-1 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Date (Newest First)</SelectItem>
+                <SelectItem value="account">Account (A-Z)</SelectItem>
+                <SelectItem value="type">Type (Income First)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Transactions List */}
         <div className="space-y-4">
@@ -152,7 +195,7 @@ const Transactions = () => {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{transaction.description}</p>
+                            <p className="font-medium truncate">{transaction.user_description || transaction.description}</p>
                             <div className="flex items-center gap-2 mt-1">
                               <Badge variant="outline" className="text-xs">
                                 {category?.name}
@@ -173,6 +216,9 @@ const Transactions = () => {
                             {formatCurrency(Math.abs(transaction.amount))}
                           </div>
                           <div className="flex items-center gap-1">
+                            {transaction.source === 'aa' && (
+                              <Cloud className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -184,17 +230,19 @@ const Transactions = () => {
                             >
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteClick(transaction);
-                              }}
-                              className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            {transaction.source !== 'aa' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteClick(transaction);
+                                }}
+                                className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -207,10 +255,12 @@ const Transactions = () => {
         </div>
       </div>
       
-      <FloatingActionButton
-        onClick={() => setIsAddSheetOpen(true)}
-        ariaLabel="Add transaction"
-      />
+      {hasManualAccounts && (
+        <FloatingActionButton
+          onClick={() => setIsAddSheetOpen(true)}
+          ariaLabel="Add transaction"
+        />
+      )}
       
       <AddTransactionSheet
         open={isAddSheetOpen}
@@ -262,7 +312,7 @@ const Transactions = () => {
         currencySymbol={currencySymbol}
         onConfirm={handleConfirmDelete}
       />
-      
+
       <BottomNavigation />
     </div>
   );

@@ -16,7 +16,7 @@ export const SubscriptionDialog = ({ open, onOpenChange }: SubscriptionDialogPro
 
   const handleUpgrade = () => {
     toast.info("Upgrade to Premium", {
-      description: "Premium features coming soon! You'll be able to upgrade and unlock AI-powered statement uploads.",
+      description: "Premium features coming soon! You'll be able to connect your bank accounts and auto-import transactions.",
       duration: 5000,
     });
   };
@@ -38,11 +38,11 @@ export const SubscriptionDialog = ({ open, onOpenChange }: SubscriptionDialogPro
 
   const premiumBenefits = [
     "Everything in Free Plan",
-    "AI-powered statement uploads",
-    "Automatic transaction extraction",
-    "Advanced analytics & reports",
+    "Connect bank accounts automatically",
+    "Automatic transaction sync",
+    "Consent-based, RBI-regulated data fetch",
     "Priority support",
-    "Export data to CSV/PDF",
+    "Export data to CSV/Excel",
   ];
 
   return (

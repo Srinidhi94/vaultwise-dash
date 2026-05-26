@@ -8,35 +8,50 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Filter, ChevronDown, X } from "lucide-react";
+import { Filter, ChevronDown, X, Search } from "lucide-react";
 import { startOfMonth, endOfMonth, subMonths, startOfYear } from "date-fns";
 
 type DateRangePreset = "all" | "thisMonth" | "lastMonth" | "last3Months" | "last6Months" | "thisYear" | "custom";
 
 export const TransactionFilters = () => {
-  const { filters, setFilters, categories } = useTransactionsStore();
+  const { filters, filtersInitialized, setFilters, categories } = useTransactionsStore();
   const { savingsAccounts, creditCards } = useAccountsStore();
   const [isOpen, setIsOpen] = useState(false); // Collapsed by default
   const [datePreset, setDatePreset] = useState<DateRangePreset>("thisMonth");
 
-  // Initialize with current month on mount
+  // Initialize with current month on mount only if never initialized before
   useEffect(() => {
-    const today = new Date();
-    setFilters({
-      dateRange: {
-        start: startOfMonth(today),
-        end: endOfMonth(today),
-      },
-    });
+    // Only set default if filters have never been initialized
+    if (!filtersInitialized) {
+      const today = new Date();
+      setFilters({
+        dateRange: {
+          start: startOfMonth(today),
+          end: endOfMonth(today),
+        },
+      });
+      // Mark as initialized by updating the store
+      useTransactionsStore.setState({ filtersInitialized: true });
+      setDatePreset("thisMonth");
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Count active filters
+  // Count active filters (excluding default date range)
+  const today = new Date();
+  const isDefaultDateRange = 
+    filters.dateRange.start?.getTime() === startOfMonth(today).getTime() &&
+    filters.dateRange.end?.getTime() === endOfMonth(today).getTime();
+  
+  // "All time" (both null) is considered an active filter if user explicitly chose it
+  const isAllTime = !filters.dateRange.start && !filters.dateRange.end && filtersInitialized;
+  
   const activeFilterCount = [
-    filters.dateRange.start || filters.dateRange.end,
+    isAllTime || ((filters.dateRange.start || filters.dateRange.end) && !isDefaultDateRange),
     filters.accountType !== "all",
     filters.accountId,
     filters.categoryId,
     filters.transactionType !== "all",
+    filters.searchKeyword && filters.searchKeyword.trim(),
   ].filter(Boolean).length;
 
   const handleDatePresetChange = (preset: DateRangePreset) => {
@@ -114,6 +129,7 @@ export const TransactionFilters = () => {
       accountId: undefined,
       categoryId: undefined,
       transactionType: "all",
+      searchKeyword: undefined,
     });
     setDatePreset("thisMonth");
   };
@@ -161,6 +177,26 @@ export const TransactionFilters = () => {
           </CollapsibleTrigger>
 
           <CollapsibleContent className="space-y-4 mt-4">
+            {/* Search Keyword */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Search Transactions
+              </Label>
+              <Input
+                type="text"
+                placeholder="Search by description, notes, or amount..."
+                value={filters.searchKeyword || ''}
+                onChange={(e) => setFilters({ searchKeyword: e.target.value })}
+                className="w-full"
+              />
+              {filters.searchKeyword && filters.searchKeyword.trim() && (
+                <p className="text-xs text-muted-foreground">
+                  Searching in filtered results
+                </p>
+              )}
+            </div>
+
             {/* Date Range Filter */}
             <div className="space-y-2">
               <Label>Date Range</Label>

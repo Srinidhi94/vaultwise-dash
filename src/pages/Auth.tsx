@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CreditCard, TrendingUp, Shield } from 'lucide-react';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { debugSupabaseConfig, supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -23,11 +23,7 @@ const Auth = () => {
   });
 
   useEffect(() => {
-    if (user) {
-      navigate('/');
-    }
-    // Debug Supabase configuration on component mount
-    debugSupabaseConfig();
+    if (user) navigate('/');
   }, [user, navigate]);
 
   const handleInputChange = (field: string, value: string) => {
@@ -42,7 +38,6 @@ const Auth = () => {
     if (activeTab === 'login') {
       const { error } = await signIn(formData.email, formData.password);
       if (error) {
-        console.error('Login error:', error);
         setError(error.message || 'Failed to sign in');
       }
     } else {
@@ -50,14 +45,11 @@ const Auth = () => {
         setError('Passwords do not match');
         return;
       }
-      console.log('Attempting signup with:', formData.email);
       const { error } = await signUp(formData.email, formData.password);
       if (error) {
-        console.error('Signup error:', error);
         setError(error.message || 'Failed to sign up');
       } else {
         setSuccess('Account created successfully! Please check your email to confirm your account.');
-        console.log('Signup successful for:', formData.email);
       }
     }
   };

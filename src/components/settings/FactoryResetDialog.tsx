@@ -105,7 +105,6 @@ export const FactoryResetDialog = ({
       
       if (authError) {
         // If admin delete fails, just sign out the user
-        console.warn('Could not delete auth user, signing out instead:', authError);
         await supabase.auth.signOut();
       }
 
@@ -115,9 +114,9 @@ export const FactoryResetDialog = ({
       navigate('/auth');
       onOpenChange(false);
 
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete data");
-      console.error('Factory reset error:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to delete data";
+      toast.error(message);
     } finally {
       setIsDeleting(false);
       setCountdown(0);

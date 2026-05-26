@@ -7,108 +7,213 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      aa_consents: {
+        Row: {
+          created_at: string
+          fetch_frequency: string | null
+          fi_types: string[]
+          id: string
+          provider: string
+          provider_consent_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string
+          fetch_frequency?: string | null
+          fi_types?: string[]
+          id?: string
+          provider?: string
+          provider_consent_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string
+          fetch_frequency?: string | null
+          fi_types?: string[]
+          id?: string
+          provider?: string
+          provider_consent_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      aa_link_refs: {
+        Row: {
+          account_type: string
+          consent_id: string
+          created_at: string
+          fip_id: string
+          id: string
+          link_ref_number: string
+          local_account_id: string | null
+          masked_account_number: string | null
+        }
+        Insert: {
+          account_type: string
+          consent_id: string
+          created_at?: string
+          fip_id: string
+          id?: string
+          link_ref_number: string
+          local_account_id?: string | null
+          masked_account_number?: string | null
+        }
+        Update: {
+          account_type?: string
+          consent_id?: string
+          created_at?: string
+          fip_id?: string
+          id?: string
+          link_ref_number?: string
+          local_account_id?: string | null
+          masked_account_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aa_link_refs_consent_id_fkey"
+            columns: ["consent_id"]
+            isOneToOne: false
+            referencedRelation: "aa_consents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           color: string | null
-          created_at: string | null
+          created_at: string
           icon: string | null
           id: string
+          is_default: boolean
           name: string
+          type: string
           user_id: string
         }
         Insert: {
           color?: string | null
-          created_at?: string | null
+          created_at?: string
           icon?: string | null
           id?: string
+          is_default?: boolean
           name: string
+          type?: string
           user_id: string
         }
         Update: {
           color?: string | null
-          created_at?: string | null
+          created_at?: string
           icon?: string | null
           id?: string
+          is_default?: boolean
           name?: string
+          type?: string
           user_id?: string
         }
         Relationships: []
       }
       credit_cards: {
         Row: {
-          created_at: string | null
+          aa_last_synced_at: string | null
+          aa_link_ref_number: string | null
+          created_at: string
           credit_limit: number
-          current_balance: number | null
+          current_balance: number
           description: string | null
           id: string
-          is_active: boolean | null
+          is_active: boolean
           name: string
-          updated_at: string | null
+          source: string
+          updated_at: string
           user_id: string
         }
         Insert: {
-          created_at?: string | null
-          credit_limit: number
-          current_balance?: number | null
+          aa_last_synced_at?: string | null
+          aa_link_ref_number?: string | null
+          created_at?: string
+          credit_limit?: number
+          current_balance?: number
           description?: string | null
           id?: string
-          is_active?: boolean | null
+          is_active?: boolean
           name: string
-          updated_at?: string | null
+          source?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
-          created_at?: string | null
+          aa_last_synced_at?: string | null
+          aa_link_ref_number?: string | null
+          created_at?: string
           credit_limit?: number
-          current_balance?: number | null
+          current_balance?: number
           description?: string | null
           id?: string
-          is_active?: boolean | null
+          is_active?: boolean
           name?: string
-          updated_at?: string | null
+          source?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
       }
       savings_accounts: {
         Row: {
-          created_at: string | null
-          current_balance: number | null
+          aa_last_synced_at: string | null
+          aa_link_ref_number: string | null
+          created_at: string
+          current_balance: number
           description: string | null
           id: string
-          is_active: boolean | null
+          is_active: boolean
           name: string
-          opening_balance: number | null
-          updated_at: string | null
+          opening_balance: number
+          source: string
+          updated_at: string
           user_id: string
         }
         Insert: {
-          created_at?: string | null
-          current_balance?: number | null
+          aa_last_synced_at?: string | null
+          aa_link_ref_number?: string | null
+          created_at?: string
+          current_balance?: number
           description?: string | null
           id?: string
-          is_active?: boolean | null
+          is_active?: boolean
           name: string
-          opening_balance?: number | null
-          updated_at?: string | null
+          opening_balance?: number
+          source?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
-          created_at?: string | null
-          current_balance?: number | null
+          aa_last_synced_at?: string | null
+          aa_link_ref_number?: string | null
+          created_at?: string
+          current_balance?: number
           description?: string | null
           id?: string
-          is_active?: boolean | null
+          is_active?: boolean
           name?: string
-          opening_balance?: number | null
-          updated_at?: string | null
+          opening_balance?: number
+          source?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -116,44 +221,50 @@ export type Database = {
       transactions: {
         Row: {
           account_id: string
-          account_type: string | null
+          account_type: string
           amount: number
           category_id: string | null
-          created_at: string | null
+          created_at: string
           description: string
           id: string
           notes: string | null
+          source: string
+          source_ref: string | null
           transaction_date: string
-          transaction_type: string | null
-          updated_at: string | null
+          transaction_type: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           account_id: string
-          account_type?: string | null
+          account_type: string
           amount: number
           category_id?: string | null
-          created_at?: string | null
+          created_at?: string
           description: string
           id?: string
           notes?: string | null
+          source?: string
+          source_ref?: string | null
           transaction_date: string
-          transaction_type?: string | null
-          updated_at?: string | null
+          transaction_type: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           account_id?: string
-          account_type?: string | null
+          account_type?: string
           amount?: number
           category_id?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string
           id?: string
           notes?: string | null
+          source?: string
+          source_ref?: string | null
           transaction_date?: string
-          transaction_type?: string | null
-          updated_at?: string | null
+          transaction_type?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -168,38 +279,48 @@ export type Database = {
       }
       user_profiles: {
         Row: {
-          created_at: string | null
-          currency_symbol: string | null
+          created_at: string
+          currency_symbol: string
+          display_name: string | null
           id: string
-          updated_at: string | null
+          number_format: string
+          subscription_expires_at: string | null
+          subscription_tier: string
+          trial_expires_at: string | null
+          trial_used: boolean
+          updated_at: string
         }
         Insert: {
-          created_at?: string | null
-          currency_symbol?: string | null
+          created_at?: string
+          currency_symbol?: string
+          display_name?: string | null
           id: string
-          updated_at?: string | null
+          number_format?: string
+          subscription_expires_at?: string | null
+          subscription_tier?: string
+          trial_expires_at?: string | null
+          trial_used?: boolean
+          updated_at?: string
         }
         Update: {
-          created_at?: string | null
-          currency_symbol?: string | null
+          created_at?: string
+          currency_symbol?: string
+          display_name?: string | null
           id?: string
-          updated_at?: string | null
+          number_format?: string
+          subscription_expires_at?: string | null
+          subscription_tier?: string
+          trial_expires_at?: string | null
+          trial_used?: boolean
+          updated_at?: string
         }
         Relationships: []
       }
     }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      [_ in never]: never
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    Views: { [_ in never]: never }
+    Functions: { [_ in never]: never }
+    Enums: { [_ in never]: never }
+    CompositeTypes: { [_ in never]: never }
   }
 }
 

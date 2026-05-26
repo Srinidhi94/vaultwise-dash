@@ -11,7 +11,7 @@ export const SubscriptionCard = () => {
 
   const handleUpgrade = () => {
     toast.info("Upgrade to Premium", {
-      description: "Premium features coming soon! Stay tuned for AI-powered transaction imports and more.",
+      description: "Premium features coming soon! Connect your bank accounts for automatic transaction sync.",
       duration: 5000,
     });
   };
@@ -25,9 +25,9 @@ export const SubscriptionCard = () => {
 
   const premiumBenefits = [
     "Everything in Free",
-    "AI-powered statement uploads",
-    "Automatic transaction extraction",
-    "Advanced analytics & reports",
+    "Connect bank accounts automatically",
+    "Automatic transaction sync",
+    "Consent-based, RBI-regulated",
     "Priority support",
   ];
 

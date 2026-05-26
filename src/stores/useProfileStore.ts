@@ -6,7 +6,7 @@ interface UserProfile {
   id: string;
   currency_symbol: string;
   display_name: string | null;
-  subscription_tier: 'free' | 'paid';
+  subscription_tier: 'free' | 'premium';
   trial_expires_at: string | null;
   subscription_expires_at: string | null;
   created_at: string;
@@ -46,7 +46,7 @@ export const useProfileStore = create<ProfileState>()(
 
           set({ profile: data as UserProfile });
         } catch (error) {
-          console.error('Error fetching profile:', error);
+          // Silently handle fetch errors
         } finally {
           set({ loading: false });
         }
@@ -69,9 +69,6 @@ export const useProfileStore = create<ProfileState>()(
           set((state) => ({
             profile: state.profile ? { ...state.profile, display_name: displayName } : null
           }));
-        } catch (error) {
-          console.error('Error updating display name:', error);
-          throw error;
         } finally {
           set({ loading: false });
         }
@@ -84,7 +81,7 @@ export const useProfileStore = create<ProfileState>()(
 
       isPaidUser: () => {
         const { profile } = get();
-        return profile?.subscription_tier === 'paid';
+        return profile?.subscription_tier === 'premium';
       },
     }),
     { name: 'profile-store' }

@@ -57,13 +57,11 @@ export const useAuthStore = create<AuthState>()(
           });
 
           if (error) {
-            console.error('Signup error:', error);
             set({ loading: false });
             return { error };
           }
 
           if (data.user) {
-            console.log('User created successfully:', data.user.id);
             // User profile will be created automatically by database trigger
             // Wait a moment for the trigger to execute
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -72,7 +70,6 @@ export const useAuthStore = create<AuthState>()(
           set({ loading: false });
           return { error: null };
         } catch (err) {
-          console.error('Unexpected signup error:', err);
           set({ loading: false });
           return { error: err };
         }

@@ -1,161 +1,519 @@
 # Contributing to VaultWise
 
-Thank you for your interest in contributing to VaultWise! This guide will help you get started with development.
+**Version**: 2.0  
+**Last Updated**: January 6, 2025
+
+Thank you for considering contributing to VaultWise! This guide will help you understand our development workflow, coding standards, and best practices.
 
 ---
 
 ## 📋 Table of Contents
 
-- [Code Standards](#code-standards)
-- [Project Structure](#project-structure)
+- [Code of Conduct](#code-of-conduct)
+- [Getting Started](#getting-started)
 - [Development Workflow](#development-workflow)
+- [Coding Standards](#coding-standards)
+- [Component Patterns](#component-patterns)
+- [State Management](#state-management)
 - [Testing Guidelines](#testing-guidelines)
 - [Commit Guidelines](#commit-guidelines)
+- [Pull Request Process](#pull-request-process)
 
 ---
 
-## 🎯 Code Standards
+## 🤝 Code of Conduct
 
-### TypeScript
+### Our Standards
 
-- **Strict mode**: All code must pass TypeScript strict checks
-- **No any types**: Avoid `any`, use proper typing
-- **Type imports**: Use `import type` for type-only imports
-- **Interfaces over types**: Prefer interfaces for object shapes
-
-### React/Frontend
-
-- **Functional components**: Use function components with hooks
-- **Component structure**:
-  ```tsx
-  // 1. Imports
-  // 2. Types/Interfaces
-  // 3. Component function
-  // 4. Export
-  ```
-- **Hooks order**: useState → useEffect → custom hooks
-- **Props destructuring**: Destructure props in function signature
-
-### State Management (Zustand)
-
-- **Store pattern**: Follow existing store structure
-- **Devtools**: Always enable devtools in development
-- **Async actions**: Use async/await, proper error handling
-- **Store organization**:
-  ```ts
-  interface Store {
-    // State
-    data: Data | null;
-    loading: boolean;
-    error: string | null;
-    
-    // Actions
-    fetchData: () => Promise<void>;
-    reset: () => void;
-  }
-  ```
-
-### Styling
-
-- **Tailwind CSS**: Use Tailwind utility classes
-- **shadcn/ui**: Use existing components from `components/ui/`
-- **DO NOT MODIFY**: Never edit shadcn/ui component files
-- **Responsive**: Mobile-first approach (sm, md, lg, xl breakpoints)
-- **Colors**: Use design system colors from tailwind.config.ts
+- **Be respectful** - Treat all contributors with respect
+- **Be collaborative** - Help others learn and grow
+- **Be constructive** - Provide helpful feedback
+- **Be professional** - Keep discussions on-topic
 
 ---
 
-## 📁 Project Structure
+## 🚀 Getting Started
 
-```
-vaultwise-dash/
-├── src/
-│   ├── components/
-│   │   ├── ui/              # shadcn/ui components (DO NOT MODIFY)
-│   │   ├── dashboard/       # Dashboard-specific components
-│   │   ├── layout/          # Layout components
-│   │   ├── accounts/        # Account management components
-│   │   ├── transactions/    # Transaction components
-│   │   └── settings/        # Settings components
-│   ├── pages/               # Page components (Dashboard, Accounts, etc.)
-│   ├── stores/              # Zustand state stores
-│   ├── integrations/        # Supabase client & types
-│   ├── hooks/               # Custom React hooks
-│   ├── utils/               # Utility functions
-│   └── lib/                 # Library configurations
-├── docs/                    # Documentation
-├── supabase/
-│   └── migrations/          # Database migrations
-└── public/                  # Static assets
-```
+### Prerequisites
 
-### Component Organization
+- Node.js 18+ and npm
+- Git
+- Code editor (VS Code recommended)
+- Supabase account (for database access)
 
-- **Feature-based**: Group by feature (accounts, transactions, etc.)
-- **Atomic design**: Build from small reusable components
-- **Single responsibility**: Each component does one thing well
-
----
-
-## 🔧 Development Workflow
-
-### 1. Setup Development Environment
+### Initial Setup
 
 ```bash
-# Install dependencies
+# 1. Fork the repository on GitHub
+
+# 2. Clone your fork
+git clone https://github.com/YOUR_USERNAME/vaultwise-dash.git
+cd vaultwise-dash
+
+# 3. Add upstream remote
+git remote add upstream https://github.com/Srinidhi94/vaultwise-dash.git
+
+# 4. Install dependencies
 npm install
 
-# Copy environment template
+# 5. Set up environment variables
 cp .env.example .env.local
+# Edit .env.local with your Supabase credentials
 
-# Edit .env.local with your credentials
-# Required: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
-
-# Start development server
+# 6. Start development server
 npm run dev
 ```
 
-### 2. Making Changes
+### Recommended VS Code Extensions
 
-1. **Create a feature branch**: `git checkout -b feature/your-feature-name`
-2. **Make changes**: Follow code standards
-3. **Test locally**: Verify changes work
-4. **Commit changes**: Follow commit guidelines
-5. **Push and create PR**: Push to your branch
+```json
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    "usernamehw.errorlens",
+    "christian-kohler.path-intellisense"
+  ]
+}
+```
 
-### 3. Before Committing
+---
+
+## 🔄 Development Workflow
+
+### Branch Strategy
+
+```
+main (production-ready code)
+  ↓
+feature/your-feature-name (your work)
+  ↓
+Pull Request → Code Review → Merge
+```
+
+**Branch Naming**:
+- `feature/add-budget-tracking` - New features
+- `fix/balance-calculation-bug` - Bug fixes
+- `refactor/optimize-queries` - Code refactoring
+- `docs/update-architecture` - Documentation
+
+### Development Cycle
+
+```
+1. Create branch from main
+    ↓
+2. Make changes + commit frequently
+    ↓
+3. Write/update tests (if applicable)
+    ↓
+4. Test locally
+    ↓
+5. Push to your fork
+    ↓
+6. Create Pull Request
+    ↓
+7. Address review feedback
+    ↓
+8. Merge when approved
+```
+
+### Keeping Your Fork Updated
 
 ```bash
-# Run linter
-npm run lint
+# Fetch upstream changes
+git fetch upstream
 
-# Build to check for errors
-npm run build
+# Merge into your main
+git checkout main
+git merge upstream/main
 
-# Run type checking
-npm run type-check  # if available
+# Push to your fork
+git push origin main
 ```
+
+---
+
+## 💻 Coding Standards
+
+### TypeScript Guidelines
+
+**DO** ✅
+
+```typescript
+// Use explicit types
+interface User {
+  id: string;
+  email: string;
+  createdAt: Date;
+}
+
+// Use type inference when obvious
+const total = calculateTotal(items); // Type inferred as number
+
+// Use readonly for immutable data
+interface Config {
+  readonly apiKey: string;
+}
+
+// Use enum for constants
+enum TransactionType {
+  INCOME = 'income',
+  EXPENSE = 'expense'
+}
+```
+
+**DON'T** ❌
+
+```typescript
+// Don't use 'any' type
+function process(data: any) { } // ❌ BAD
+
+// Don't use non-null assertion without checks
+const user = users.find(u => u.id === id)!; // ❌ BAD
+
+// Don't ignore TypeScript errors
+// @ts-ignore // ❌ BAD
+const result = dangerousOperation();
+```
+
+### File Organization
+
+```
+src/
+├── components/
+│   ├── ui/              # shadcn/ui primitives (DON'T MODIFY)
+│   ├── dashboard/       # Dashboard-specific components
+│   ├── transactions/    # Transaction components
+│   ├── accounts/        # Account components
+│   └── settings/        # Settings components
+├── pages/               # Route pages
+├── stores/              # Zustand stores
+├── utils/               # Utility functions
+├── hooks/               # Custom React hooks
+└── integrations/        # Third-party integrations
+```
+
+### Naming Conventions
+
+**Files**:
+```
+ComponentName.tsx        # React components (PascalCase)
+utilityFunction.ts       # Utilities (camelCase)
+useCustomHook.ts         # Hooks (camelCase with 'use' prefix)
+CONSTANT_VALUES.ts       # Constants (UPPER_SNAKE_CASE)
+```
+
+**Variables & Functions**:
+```typescript
+// Variables: camelCase
+const userName = 'John';
+const totalAmount = 1000;
+
+// Functions: camelCase, verb-first
+function calculateTotal(items: Item[]): number { }
+function handleSubmit(event: FormEvent): void { }
+
+// Constants: UPPER_SNAKE_CASE
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const API_TIMEOUT = 30000;
+
+// Components: PascalCase
+function TransactionList() { }
+function AddAccountDialog() { }
+
+// Interfaces/Types: PascalCase
+interface Transaction { }
+type AccountType = 'savings' | 'credit';
+```
+
+---
+
+## 🧩 Component Patterns
+
+### Functional Components
+
+**Standard Pattern**:
+
+```typescript
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { useTransactionsStore } from '@/stores/useTransactionsStore';
+
+interface TransactionCardProps {
+  transaction: Transaction;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+export function TransactionCard({ 
+  transaction, 
+  onEdit, 
+  onDelete 
+}: TransactionCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  return (
+    <div className="p-4 border rounded-lg">
+      {/* Component JSX */}
+    </div>
+  );
+}
+```
+
+### Dialog Components
+
+**Pattern**: Use shadcn/ui Dialog + controlled state
+
+```typescript
+interface AddTransactionDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function AddTransactionDialog({ 
+  open, 
+  onOpenChange 
+}: AddTransactionDialogProps) {
+  const [formData, setFormData] = useState<FormData>(initialData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      await saveTransaction(formData);
+      toast.success('Transaction added!');
+      onOpenChange(false);
+    } catch (error) {
+      toast.error('Failed to add transaction');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        {/* Form content */}
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+### Form Components
+
+**Pattern**: Use React Hook Form + Yup validation
+
+```typescript
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+
+const schema = yup.object({
+  amount: yup.number().positive().required(),
+  description: yup.string().required().max(100),
+  date: yup.date().required()
+});
+
+type FormData = yup.InferType<typeof schema>;
+
+export function TransactionForm() {
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+    resolver: yupResolver(schema)
+  });
+
+  const onSubmit = (data: FormData) => {
+    // Handle form submission
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <input {...register('amount')} />
+      {errors.amount && <span>{errors.amount.message}</span>}
+    </form>
+  );
+}
+```
+
+---
+
+## 🗄️ State Management
+
+### Zustand Store Pattern
+
+```typescript
+import { create } from 'zustand';
+import { devtools } from 'zustand/middleware';
+import { supabase } from '@/integrations/supabase/client';
+
+interface Item {
+  id: string;
+  name: string;
+  createdAt: Date;
+}
+
+interface ItemsState {
+  // State
+  items: Item[];
+  loading: boolean;
+  error: string | null;
+  
+  // Actions
+  fetchItems: () => Promise<void>;
+  addItem: (item: Omit<Item, 'id'>) => Promise<void>;
+  updateItem: (id: string, updates: Partial<Item>) => Promise<void>;
+  deleteItem: (id: string) => Promise<void>;
+  
+  // Computed
+  getItemById: (id: string) => Item | undefined;
+}
+
+export const useItemsStore = create<ItemsState>()(
+  devtools(
+    (set, get) => ({
+      // Initial state
+      items: [],
+      loading: false,
+      error: null,
+
+      // Fetch all items
+      fetchItems: async () => {
+        set({ loading: true, error: null });
+        try {
+          const { data, error } = await supabase
+            .from('items')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+          set({ items: data || [], loading: false });
+        } catch (error) {
+          set({ error: error.message, loading: false });
+          toast.error('Failed to fetch items');
+        }
+      },
+
+      // Add new item
+      addItem: async (item) => {
+        set({ loading: true });
+        try {
+          const { data, error } = await supabase
+            .from('items')
+            .insert([item])
+            .select()
+            .single();
+
+          if (error) throw error;
+
+          set((state) => ({
+            items: [data, ...state.items],
+            loading: false
+          }));
+          
+          toast.success('Item added!');
+        } catch (error) {
+          set({ loading: false });
+          toast.error('Failed to add item');
+          throw error;
+        }
+      },
+
+      // Update item
+      updateItem: async (id, updates) => {
+        try {
+          const { error } = await supabase
+            .from('items')
+            .update(updates)
+            .eq('id', id);
+
+          if (error) throw error;
+
+          set((state) => ({
+            items: state.items.map((item) =>
+              item.id === id ? { ...item, ...updates } : item
+            )
+          }));
+
+          toast.success('Item updated!');
+        } catch (error) {
+          toast.error('Failed to update item');
+          throw error;
+        }
+      },
+
+      // Delete item
+      deleteItem: async (id) => {
+        try {
+          const { error } = await supabase
+            .from('items')
+            .delete()
+            .eq('id', id);
+
+          if (error) throw error;
+
+          set((state) => ({
+            items: state.items.filter((item) => item.id !== id)
+          }));
+
+          toast.success('Item deleted!');
+        } catch (error) {
+          toast.error('Failed to delete item');
+          throw error;
+        }
+      },
+
+      // Get item by ID
+      getItemById: (id) => {
+        return get().items.find((item) => item.id === id);
+      }
+    }),
+    { name: 'items-store' }
+  )
+);
+```
+
+### Key Patterns
+
+1. **Always use `set` for state updates** - Never mutate state directly
+2. **Use `get` to access current state** - For computed values
+3. **Handle errors gracefully** - Try-catch + toast notifications
+4. **Add loading states** - For better UX
+5. **Use devtools** - For debugging
+6. **Type everything** - Interfaces for state and actions
 
 ---
 
 ## 🧪 Testing Guidelines
 
+### Unit Tests (Future)
+
+```typescript
+// Example test structure
+describe('calculateBalance', () => {
+  it('should calculate savings balance correctly', () => {
+    const transactions = [
+      { type: 'income', amount: 1000 },
+      { type: 'expense', amount: 300 }
+    ];
+    const balance = calculateSavingsBalance(500, transactions);
+    expect(balance).toBe(1200); // 500 + 1000 - 300
+  });
+});
+```
+
 ### Manual Testing Checklist
 
-- [ ] Test on mobile viewport (< 768px)
-- [ ] Test on tablet viewport (768px - 1024px)
-- [ ] Test on desktop viewport (> 1024px)
-- [ ] Test with real data
-- [ ] Test error states
-- [ ] Test loading states
-- [ ] Test authentication flows
+Before submitting a PR, test:
 
-### Component Testing
-
-- **User flows**: Test complete user journeys
-- **Edge cases**: Empty states, long content, errors
-- **Responsive**: Test all breakpoints
-- **Accessibility**: Keyboard navigation, screen readers
+- [ ] Feature works on Chrome, Firefox, Safari
+- [ ] Mobile responsive (test on real device or DevTools)
+- [ ] Loading states show correctly
+- [ ] Error states handled gracefully
+- [ ] Toast notifications appear
+- [ ] No console errors or warnings
+- [ ] TypeScript compiles without errors
+- [ ] ESLint passes without warnings
 
 ---
 
@@ -164,118 +522,289 @@ npm run type-check  # if available
 ### Commit Message Format
 
 ```
-<type>: <subject>
+<type>(<scope>): <subject>
 
-<body (optional)>
+<body>
+
+<footer>
 ```
 
-### Types
+**Types**:
+- `feat`: New feature
+- `fix`: Bug fix
+- `refactor`: Code refactoring
+- `docs`: Documentation changes
+- `style`: Code formatting (no logic changes)
+- `perf`: Performance improvements
+- `test`: Adding or updating tests
+- `chore`: Build process, tooling changes
 
-- **feat**: New feature
-- **fix**: Bug fix
-- **docs**: Documentation changes
-- **style**: Code style changes (formatting, no logic change)
-- **refactor**: Code refactoring
-- **perf**: Performance improvements
-- **test**: Adding or updating tests
-- **chore**: Build process or auxiliary tool changes
-
-### Examples
+**Examples**:
 
 ```bash
-feat: add transaction export to Excel
+# Good commits ✅
+feat(transactions): add bulk delete functionality
+fix(balance): correct credit card balance calculation
+refactor(dashboard): optimize chart rendering
+docs(readme): update installation instructions
+perf(transactions): add virtualization for long lists
 
-fix: correct balance calculation for credit cards
-
-docs: update README with n8n integration guide
-
-refactor: simplify account store logic
+# Bad commits ❌
+"fixed stuff"  # Not descriptive
+"WIP"  # Work in progress shouldn't be pushed
+"asdfasdf"  # Meaningless
 ```
+
+### Commit Frequency
+
+- **DO**: Commit frequently with logical chunks
+- **DON'T**: One massive commit with all changes
+- **DO**: Commit working code (passes lint/type check)
+- **DON'T**: Commit broken code
 
 ---
 
-## 🔐 Security Guidelines
+## 🔍 Pull Request Process
 
-### Critical Rules
+### Before Creating PR
 
-1. **Never store sensitive data**: Bank statements, passwords, API keys
-2. **Use environment variables**: Never hardcode credentials
-3. **RLS policies**: All database queries respect Row Level Security
-4. **Input validation**: Validate and sanitize all user inputs
-5. **File uploads**: Validate file types and sizes
+1. ✅ All tests pass (manual testing checklist)
+2. ✅ No TypeScript errors (`npm run build`)
+3. ✅ No ESLint warnings (`npm run lint`)
+4. ✅ Code formatted (Prettier)
+5. ✅ Branch updated with latest main
+6. ✅ Meaningful commit messages
 
-### Supabase Best Practices
+### PR Title Format
 
-- **RLS enabled**: All tables must have RLS enabled
-- **Auth checks**: Verify user authentication in all queries
-- **Signed URLs**: Use signed URLs for temporary file access
-- **User isolation**: Users can only access their own data
+```
+[Type] Brief description
+
+Examples:
+[Feature] Add budget tracking functionality
+[Fix] Resolve balance calculation issue in credit cards
+[Refactor] Optimize transaction list rendering
+[Docs] Update contributing guidelines
+```
+
+### PR Description Template
+
+```markdown
+## Description
+Brief description of what this PR does.
+
+## Type of Change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
+- [ ] Documentation update
+
+## Changes Made
+- List of specific changes
+- Another change
+- One more change
+
+## Testing Done
+- [ ] Tested on Chrome
+- [ ] Tested on mobile
+- [ ] No console errors
+- [ ] TypeScript passes
+- [ ] ESLint passes
+
+## Screenshots (if applicable)
+[Add screenshots here]
+
+## Related Issues
+Fixes #123
+Closes #456
+```
+
+### Review Process
+
+1. **Submit PR** - Create PR on GitHub
+2. **Auto-checks** - Wait for CI/CD (if configured)
+3. **Code Review** - Maintainer reviews code
+4. **Address Feedback** - Make requested changes
+5. **Approval** - PR gets approved
+6. **Merge** - Maintainer merges to main
+
+### Review Criteria
+
+Reviewers will check:
+- ✅ Code follows style guidelines
+- ✅ No unnecessary complexity
+- ✅ Proper error handling
+- ✅ TypeScript types are correct
+- ✅ No performance issues
+- ✅ Documentation updated (if needed)
 
 ---
 
 ## 🎨 UI/UX Guidelines
 
-### Design Principles
+### shadcn/ui Components
 
-1. **Mobile-first**: Design for mobile, enhance for desktop
-2. **Clarity**: Clear labels, obvious actions
-3. **Feedback**: Always show loading/success/error states
-4. **Consistency**: Follow existing patterns
-5. **Accessibility**: WCAG 2.1 AA compliance
+**DO** ✅
+- Use existing shadcn/ui components
+- Follow Tailwind utility classes
+- Maintain consistent spacing
+- Use semantic color names
 
-### Color Usage (Financial App Psychology)
+**DON'T** ❌
+- Modify shadcn/ui component files directly
+- Use inline styles
+- Use arbitrary color values
+- Break responsive design
 
-- **Blue** (#3B82F6): Trust, security, primary actions
-- **Green** (#10B981): Success, positive amounts (income)
-- **Red** (#EF4444): Errors, negative amounts (expenses)
-- **Purple** (#8B5CF6): Premium features
-- **Amber** (#F59E0B): Warnings
-- **Gray**: Neutral, secondary information
+### Responsive Design
 
-### Touch Targets
+```tsx
+// Mobile-first approach
+<div className="p-2 sm:p-4 lg:p-6">
+  <h1 className="text-lg sm:text-xl lg:text-2xl">
+    Responsive Heading
+  </h1>
+</div>
 
-- **Minimum size**: 44x44px for mobile
-- **Spacing**: 8px minimum between interactive elements
-- **Text size**: Minimum 16px on mobile (prevents zoom)
+// Show/hide on breakpoints
+<div className="block sm:hidden">Mobile only</div>
+<div className="hidden sm:block">Desktop only</div>
+```
+
+### Accessibility
+
+```tsx
+// Always add labels
+<Label htmlFor="email">Email</Label>
+<Input id="email" type="email" />
+
+// Use semantic HTML
+<nav>...</nav>
+<main>...</main>
+<footer>...</footer>
+
+// Add ARIA labels
+<button aria-label="Close dialog">
+  <X className="h-4 w-4" />
+</button>
+```
 
 ---
 
-## 🐛 Debugging Tips
+## 🚫 Common Mistakes to Avoid
 
-### Common Issues
+### 1. Modifying shadcn/ui Components
 
-**Build Errors**:
-- Check TypeScript errors: `npm run build`
-- Clear node_modules: `rm -rf node_modules && npm install`
+```typescript
+// ❌ DON'T modify files in src/components/ui/
+// These are generated components
 
-**Supabase Issues**:
-- Verify environment variables in `.env.local`
-- Check RLS policies in Supabase dashboard
-- Verify table/column names match types
+// ✅ DO create wrapper components
+export function CustomButton(props: ButtonProps) {
+  return <Button className="custom-styles" {...props} />;
+}
+```
 
-**State Issues**:
-- Use Zustand devtools in browser
-- Check async action error handling
-- Verify store initialization
+### 2. Ignoring Loading States
+
+```typescript
+// ❌ BAD
+function TransactionList() {
+  const { transactions } = useTransactionsStore();
+  return <div>{transactions.map(...)}</div>;
+}
+
+// ✅ GOOD
+function TransactionList() {
+  const { transactions, loading } = useTransactionsStore();
+  
+  if (loading) return <Skeleton />;
+  if (transactions.length === 0) return <EmptyState />;
+  
+  return <div>{transactions.map(...)}</div>;
+}
+```
+
+### 3. Not Handling Errors
+
+```typescript
+// ❌ BAD
+async function saveData() {
+  await supabase.from('table').insert(data);
+}
+
+// ✅ GOOD
+async function saveData() {
+  try {
+    const { error } = await supabase.from('table').insert(data);
+    if (error) throw error;
+    toast.success('Data saved!');
+  } catch (error) {
+    toast.error('Failed to save data');
+    console.error('Save error:', error);
+  }
+}
+```
+
+### 4. Prop Drilling
+
+```typescript
+// ❌ BAD - Passing props through multiple levels
+<Parent data={data}>
+  <Child data={data}>
+    <GrandChild data={data} />
+  </Child>
+</Parent>
+
+// ✅ GOOD - Use Zustand store
+function GrandChild() {
+  const { data } = useDataStore();
+  return <div>{data}</div>;
+}
+```
 
 ---
 
-## 📚 Additional Resources
+## 📚 Resources
 
-- [React Documentation](https://react.dev)
+### Documentation
+- [React Docs](https://react.dev)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-- [Supabase Documentation](https://supabase.com/docs)
 - [Tailwind CSS](https://tailwindcss.com/docs)
-- [shadcn/ui Components](https://ui.shadcn.com)
+- [shadcn/ui](https://ui.shadcn.com)
+- [Zustand](https://github.com/pmndrs/zustand)
+- [Supabase](https://supabase.com/docs)
+
+### Internal Docs
+- [Architecture](./ARCHITECTURE.md)
+- [Development Guide](./DEVELOPMENT.md)
+- [Product Requirements](./PRD.md)
 
 ---
 
-## 💬 Getting Help
+## ❓ Getting Help
 
-- Check existing issues on GitHub
-- Review archived documentation in `docs/archive/`
-- Ask questions in project discussions
+### Channels
+
+- **GitHub Issues**: Bug reports, feature requests
+- **GitHub Discussions**: Questions, ideas
+- **Code Review**: Tag maintainers in PR
+
+### Questions to Ask
+
+Before asking:
+1. Did you read the documentation?
+2. Did you search existing issues?
+3. Can you provide a minimal reproduction?
 
 ---
 
-Thank you for contributing to VaultWise! 🎉
+## 🙏 Thank You!
+
+Thank you for contributing to VaultWise! Every contribution, no matter how small, helps make the project better.
+
+---
+
+**Version**: 2.0  
+**Last Updated**: January 6, 2025  
+**Maintainer**: Srinidhi Rao

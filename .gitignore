@@ -35,3 +35,4 @@ requirements-pdf.txt
 
 # Lovable prompt (sensitive requirements)
 finance-app-lovable-prompt.md
+.vercel
